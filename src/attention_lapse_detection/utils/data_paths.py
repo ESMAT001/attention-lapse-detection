@@ -2,7 +2,7 @@ from pathlib import Path
 
 from attention_lapse_detection.utils.constants import (
     LABELS_SPLITS,
-    WINDOW_SECONDS_DEFAULT,
+    DEFAULT_WINDOW_SECONDS,
 )
 
 from attention_lapse_detection.utils.paths import PATHS
@@ -20,6 +20,6 @@ def fps_tag(fps: int) -> str:
     return f"{fps}fps"
 
 
-def window_tag(window_seconds: int = WINDOW_SECONDS_DEFAULT) -> str:
+def window_tag(window_seconds: int = DEFAULT_WINDOW_SECONDS) -> str:
     return f"{window_seconds}s"
 
