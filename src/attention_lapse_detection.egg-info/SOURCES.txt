@@ -1,8 +1,0 @@
-LICENSE
-README.md
-pyproject.toml
-src/attention_lapse_detection.egg-info/PKG-INFO
-src/attention_lapse_detection.egg-info/SOURCES.txt
-src/attention_lapse_detection.egg-info/dependency_links.txt
-src/attention_lapse_detection.egg-info/requires.txt
-src/attention_lapse_detection.egg-info/top_level.txt
