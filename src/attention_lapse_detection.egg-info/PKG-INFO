@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: attention-lapse-detection
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: matplotlib>=3.11.2
+Requires-Dist: mediapipe>=1.0.1
+Requires-Dist: numpy>=2.4.6
+Requires-Dist: opencv-python>=5.0.0.93
+Requires-Dist: pandas>=3.0.5
+Requires-Dist: scikit-learn>=1.9.1
+Requires-Dist: scipy>=1.17.1
+Requires-Dist: torch>=2.14.0
+Dynamic: license-file
+
+Student disengagement detection
+
+test
