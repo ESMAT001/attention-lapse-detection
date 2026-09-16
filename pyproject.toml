@@ -1,0 +1,47 @@
+[project]
+name = "attention-lapse-detection"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "mediapipe>=1.0.1",
+    "numpy>=2.4.6",
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.0.5",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.17.1",
+    "torch>=2.14.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "jupyterlab>=4.6.3",
+    "optuna>=5.0.0",
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126", marker = "sys_platform == 'linux'" }]
+
+[tool.ruff]
+target-version = "py311"
+extend-exclude = ["third_party", "notebooks"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=81"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
