@@ -1,5 +1,19 @@
 SEED = 42
 
+# Features
+FEATURE_COLUMNS = [
+    "ear",
+    "mar",
+    "roll",
+    "pitch",
+    "yaw",
+    "perclos",
+    "blinks",
+    "face_present",
+    "gaze_x",
+    "gaze_y",
+]
+
 # Data
 LABELS_SPLITS = {
     "Train": "TrainLabels.csv",

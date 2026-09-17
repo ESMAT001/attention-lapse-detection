@@ -1,6 +1,6 @@
 class BlinkCounter:
     """ Counts blinks from per frame EAR.
-        Adapted from alireza787b/Python-Gaze-Face-Tracker.
+        src: Adapted from alireza787b/Python-Gaze-Face-Tracker.
     """
 
     def __init__(self, ear_threshold: float):
