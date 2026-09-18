@@ -54,8 +54,6 @@ class Pipeline:
         return rows
 
     def _draw(self, frame, row: FeatureRow, timestamp_ms: int) -> bool:
-        """Show one annotated frame; False when the user pressed q."""
-        # row.blinks is the per-frame event, so display the running total instead.
         total_blinks = self.extractor.blink_counter.total_blinks
 
         if self.face_mesh:
@@ -80,7 +78,7 @@ class Pipeline:
 
 
 def build_pipeline(
-    source,  # video path, or int webcam index
+    source,
     target_fps: int | None = None,
     mirror: bool = False,
     show: bool = False,
