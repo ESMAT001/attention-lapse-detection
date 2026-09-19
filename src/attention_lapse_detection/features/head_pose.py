@@ -10,7 +10,7 @@ apply only after `to_reference_frame`. Zero means facing the camera axis, not an
 anatomical reference. tests/test_head_pose_sign.py pins the convention.
 """
 
-from third_party.e_candeloro_Driver_State_Detection.pose_estimation import (
+from e_candeloro_Driver_State_Detection.pose_estimation import (
     HeadPoseEstimator,
 )
 import numpy as np

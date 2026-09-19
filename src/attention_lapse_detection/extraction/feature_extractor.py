@@ -1,5 +1,5 @@
-from third_party.e_candeloro_Driver_State_Detection.eye_detector import EyeDetector
-from third_party.Tandon_A_Drowsiness_Detection_Mediapipe_main.inference import (
+from e_candeloro_Driver_State_Detection.eye_detector import EyeDetector
+from Tandon_A_Drowsiness_Detection_Mediapipe_main.inference import (
     mouth_feature,
 )
 
