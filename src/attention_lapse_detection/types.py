@@ -122,3 +122,13 @@ class VideoResult:
             )
 
         return windows
+
+
+@dataclass
+class FeatureScaler:
+    """Preprocessing stats fit on Train and reused for every other split."""
+
+    mean: pd.Series
+    std: pd.Series
+    quantile_low: pd.Series
+    quantile_high: pd.Series

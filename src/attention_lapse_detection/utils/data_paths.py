@@ -8,6 +8,13 @@ from attention_lapse_detection.utils.constants import (
 from attention_lapse_detection.utils.paths import PATHS
 
 
+def features_id_from_drops(drop_columns: list[str]) -> str:
+    """Directory tag for one feature set"""
+    if not drop_columns:
+        return "all_features"
+    return "drop_" + "_".join(sorted(drop_columns))
+
+
 def labels_dir() -> Path:
     return PATHS.processed_data / "labels"
 
