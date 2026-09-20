@@ -33,3 +33,14 @@ DEFAULT_FPS = 10
 # the trailing window. Justification for the chosen threshold is provided in the thesis.
 EAR_CLOSED_THRESHOLD = 0.20
 PERCLOS_WINDOW_SECONDS = 10.0
+
+WINDOW_METADATA_COLUMNS = [
+    "sample_id",
+    "video_id",
+    "label_split",
+    "window_index",
+    "start_frame",
+    "end_frame",
+    "start_timestamp_ms",
+    "end_timestamp_ms",
+]
