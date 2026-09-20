@@ -21,6 +21,8 @@ LABELS_SPLITS = {
     "Test": "TestLabels.csv",
 }
 
+IMPUTE_ON_ABSENT = ["ear", "mar", "roll", "pitch", "yaw", "gaze_x", "gaze_y"]
+
 FPS_OPTIONS = (10, 15, 30)
 WINDOW_SECONDS_OPTIONS = (5, 10)
 
