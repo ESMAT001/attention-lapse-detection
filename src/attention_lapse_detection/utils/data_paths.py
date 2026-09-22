@@ -1,4 +1,5 @@
 from pathlib import Path
+import numpy as np
 
 from attention_lapse_detection.utils.constants import (
     LABELS_SPLITS,
@@ -87,3 +88,17 @@ def failed_extraction_csv(
         / window_tag(window_seconds)
         / f"{fps_tag(fps)}_{split}.csv"
     )
+
+
+def load_clean_split(
+    fps: int,
+    drop_columns: list[str],
+    split: str,
+    window_seconds: int = DEFAULT_WINDOW_SECONDS,
+):
+    """Load one cleaned split by name: "Train", "Validation" or "Test" """
+
+    src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
+    X = np.load(src / f"X_{split}_windows_clean.npy")
+    y = np.load(src / f"y_{split}_windows_clean.npy")
+    return X, y

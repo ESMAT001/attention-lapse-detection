@@ -46,3 +46,11 @@ WINDOW_METADATA_COLUMNS = [
     "start_timestamp_ms",
     "end_timestamp_ms",
 ]
+
+
+EPOCHS = 50  # upper bound
+PATIENCE = 4  # epochs without val AP improvement before stopping
+
+WEIGHT_DECAY = 1e-4
+
+NUM_CLASSES = 2  # disengaged / engaged
