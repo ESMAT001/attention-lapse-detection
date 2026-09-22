@@ -1,10 +1,6 @@
 from dataclasses import dataclass, asdict
 import numpy as np
 import pandas as pd
-import torch
-from numpy.typing import NDArray
-from torch import Tensor
-from torch.utils.data import Dataset
 from attention_lapse_detection.utils.constants import FEATURE_COLUMNS
 
 
@@ -136,17 +132,3 @@ class FeatureScaler:
     std: pd.Series
     quantile_low: pd.Series
     quantile_high: pd.Series
-
-
-class AttentionLapseDataset(Dataset):
-    """Returns one feature window and its label."""
-
-    def __init__(self, X: NDArray[np.float32], y: NDArray[np.int64]) -> None:
-        self.X = torch.tensor(X, dtype=torch.float32)
-        self.y = torch.tensor(y, dtype=torch.long)
-
-    def __len__(self) -> int:
-        return len(self.X)
-
-    def __getitem__(self, idx: int) -> tuple[Tensor, Tensor]:
-        return self.X[idx], self.y[idx]
