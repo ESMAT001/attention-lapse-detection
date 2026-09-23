@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import pandas as pd
 from numpy.typing import NDArray
 from sklearn.utils import compute_class_weight
 from torch import Tensor
@@ -90,3 +91,16 @@ def balanced_class_weights(y_train: NDArray[np.int64]) -> torch.Tensor:
     print(f"Class weights: {tensor.tolist()}")
 
     return tensor
+
+
+def load_clip_ids(
+    fps: int,
+    drop_columns: list[str],
+    split: str,
+    window_seconds: int = DEFAULT_WINDOW_SECONDS,
+) -> NDArray:
+    """The clip each window of a split came from, in .npy row order."""
+    
+    src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
+    meta = pd.read_csv(src / f"{split}_window_metadata_clean.csv")
+    return meta.video_id.to_numpy()
