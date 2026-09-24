@@ -22,7 +22,6 @@ from attention_lapse_detection.core_models.registry import CLASSIFIERS
 from attention_lapse_detection.training.metrics import clip_ap
 from attention_lapse_detection.training.trainer import Trainer
 from attention_lapse_detection.utils.constants import (
-    DEFAULT_FPS,
     EPOCHS,
     FPS_OPTIONS,
     PATIENCE,
@@ -30,7 +29,6 @@ from attention_lapse_detection.utils.constants import (
     WEIGHT_DECAY,
     NUM_CLASSES,
     WINDOW_SECONDS_OPTIONS,
-    DEFAULT_WINDOW_SECONDS,
 )
 from attention_lapse_detection.utils.csv_log import append_row, read_rows
 from attention_lapse_detection.utils.hyperparameters import Hyperparameters
@@ -43,6 +41,7 @@ from attention_lapse_detection.training.data import (
 
 from pathlib import Path
 
+from attention_lapse_detection.utils.numeric import round4
 from attention_lapse_detection.utils.seed import set_seed
 
 DROP_COLUMNS = []
@@ -112,7 +111,7 @@ def all_builds() -> list[Build]:
 def load_data(build: Build) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Train and validation windows for one build, loaded once.
 
-    The split is fixed by stage 03; a seed changes initialisation and batch order, never the data,
+    The split is fixed; a seed changes initialisation and batch order, never the data,
     so every run of a study reuses these arrays. Cached one build deep, since studies are run one build at a time.
     """
     X_train, y_train = load_clean_split(
@@ -132,6 +131,50 @@ def class_weights(build: Build) -> torch.Tensor:
 @lru_cache(maxsize=None)
 def validation_clip_ids(build: Build) -> np.ndarray:
     return load_clip_ids(build.fps, DROP_COLUMNS, "Validation", build.window_seconds)
+
+
+def entry(model_name: str, build: Build, pick: Result) -> str:
+    """The pick as a line to paste into hyperparameters"""
+    config = pick.config
+
+    return (
+        f'    ("{model_name}", {build.fps}, {build.window_seconds}): '
+        f"Hyperparameters(hidden_size={config.hidden_size}, "
+        f"num_layers={config.num_layers}, dropout={config.dropout}, "
+        f"learning_rate={config.learning_rate:.6g}, batch_size={config.batch_size}),"
+        f"  # clip-level val AP {round4(pick.mean)}"
+    )
+
+
+def report(model_name: str, build: Build, results: list[Result], pick: Result):
+    print(f"\n {model_name} | {build} (confirmed on seeds {CONFIRM_SEEDS})")
+
+    for result in sorted(results, key=lambda result: result.mean, reverse=True):
+        print(
+            f"  {round4(result.mean)} +/- {round4(result.sem)}  "
+            f"{result.params,} params  {result.config}"
+        )
+    print(f"  pick: {pick.config}  ({round4(pick.mean)}, {pick.params:,} params)")
+
+
+def select(results: list[Result]) -> Result:
+    """Adopt the candidate with the highest confirmed mean."""
+    return max(results, key=lambda result: result.mean)
+
+
+def confirm(
+    model_name: str, build: Build, configs: list[Hyperparameters], device: torch.device
+) -> list[Result]:
+    """Rescore the top candidates on seeds the search never saw."""
+
+    results = []
+    for config in configs:
+        mean, sem = score(model_name, build, config, CONFIRM_SEEDS, device)
+        params = sum(
+            p.numel() for p in build_model(model_name, build, config).parameters()
+        )
+        results.append(Result(config, mean, sem, params))
+    return results
 
 
 def build_model(model_name: str, build: Build, config: Hyperparameters) -> nn.Module:
@@ -205,9 +248,9 @@ def search(
     device: torch.device,
     log_row: Callable[..., None],
 ) -> list[Hyperparameters]:
-    """Stage A: TPE over the space, best first. Nothing is adopted from here.
+    """TPE over the space, best first. Nothing is adopted from here.
 
-    Sequential (one trial at a time) so the seeded sampler replays exactly.
+    one trial at a time so the seeded sampler replays exactly.
     """
 
     def objective(trial: optuna.Trial) -> float:
@@ -365,5 +408,26 @@ if __name__ == "__main__":
     picks = []
     for model_name, build in studies:
         log_row = row_writer(args.out, model_name, build, device)
-        
         ranked = search(model_name, build, args.trails, device, log_row)
+        results = confirm(model_name, build, ranked[: args.confirm_top], device)
+        pick = select(results)
+
+        for result in results:
+            log_row(
+                "confirm",
+                result.config,
+                result.mean,
+                result.sem,
+                result.params,
+                result is pick,
+            )
+
+        report(model_name, build, results, pick)
+        picks.append((model_name, build, pick))
+
+    print(
+        "\n Paste the following in src/attention_lapse_detection/utils/hyperparameter.py"
+    )
+
+    for model_name, build, pick in picks:
+        print(entry(model_name, build, pick))
