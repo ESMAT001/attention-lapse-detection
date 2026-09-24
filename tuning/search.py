@@ -16,7 +16,6 @@ from collections.abc import Callable
 
 from torch import nn
 from torch import optim
-from torch import optim
 
 from attention_lapse_detection.core_models.registry import CLASSIFIERS
 from attention_lapse_detection.training.metrics import clip_ap
