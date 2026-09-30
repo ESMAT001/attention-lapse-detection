@@ -13,5 +13,6 @@ class ProjectPaths:
     processed_clean_data = ROOT / "data" / "processed" / "clean"
     models = ROOT / "models"
     face_landmarker = ROOT / "models" / "face_landmarker.task"
+    experiments = ROOT / "experiments"
 
 PATHS = ProjectPaths()
