@@ -1,5 +1,7 @@
 import argparse
+import json
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import Optimizer
@@ -11,6 +13,7 @@ from attention_lapse_detection.training.data import (
     load_clean_splits,
     make_loaders,
 )
+from attention_lapse_detection.training.metrics import best_f1_threshold
 from attention_lapse_detection.training.report import report_ap
 from attention_lapse_detection.training.trainer import Trainer
 from attention_lapse_detection.utils.constants import (
@@ -24,6 +27,9 @@ from attention_lapse_detection.utils.constants import (
     SEED,
     WEIGHT_DECAY,
 )
+from attention_lapse_detection.utils.data_paths import clean_dir, features_id_from_drops
+from attention_lapse_detection.utils.numeric import round4
+from attention_lapse_detection.utils.paths import PATHS
 from attention_lapse_detection.utils.seed import set_seed
 
 
@@ -42,8 +48,57 @@ def train_and_report(
     trainer.fit(epochs=epochs, early_stopping=True, patience=patience)
     report_ap(trainer)
 
-
     return trainer
+
+
+def save_checkpoint(
+    name: str,
+    model: nn.Module,
+    model_kwargs: dict,
+    trainer: Trainer,
+    fps: int,
+    drop_columns: list[str],
+    window_seconds: int = DEFAULT_WINDOW_SECONDS,
+) -> None:
+    """Save one .pt bundle: weights, config, scaler and decision threshold."""
+    scaler_path = (
+        clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
+        / "scaler.json"
+    )
+
+    if not scaler_path.is_file():
+        raise FileNotFoundError(
+            f"{scaler_path} not found. Re-run 03_clean_extracted_data.py for this "
+        )
+
+    with open(scaler_path) as f:
+        scaler = json.load(f)
+
+    threshold, prec, rec = best_f1_threshold(trainer)
+
+    bundle = {
+        "model_class": type(model).__name__,
+        "model_kwargs": model_kwargs,
+        # Saved on CPU so a bundle trained on a GPU loads anywhere.
+        "state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
+        "scaler": scaler,
+        "threshold": threshold,
+        "fps": fps,
+        "drop_columns": drop_columns,
+        "window_seconds": window_seconds,
+        "val_ap": trainer.best_val_ap,
+    }
+
+    PATHS.models.mkdir(parents=True, exist_ok=True)
+    out_path = PATHS.models / f"{name}.pt"
+    torch.save(bundle, out_path)
+
+    print(
+        f"Saved checkpoint : {out_path}\n"
+        f"  class={bundle['model_class']} threshold={round4(threshold)} "
+        f"(val precision {round4(prec)}, recall {round4(rec)}) "
+        f"val_ap={round4(trainer.best_val_ap)}"
+    )
 
 
 def train_model(
@@ -77,9 +132,7 @@ def train_model(
     model = CLASSIFIERS[model_name](**model_kwargs)
 
     criterion = nn.CrossEntropyLoss(weight=balanced_class_weights(y_train))
-    optimizer = optim.Adam(
-        model.parameters(), lr=1e-3, weight_decay=WEIGHT_DECAY
-    )
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=WEIGHT_DECAY)
 
     trainer = train_and_report(model, train_loader, val_loader, criterion, optimizer)
     return trainer
