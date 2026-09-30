@@ -8,7 +8,7 @@ from attention_lapse_detection.utils.paths import PATHS
 
 
 def binarize_labels_in_split(label_csv: str) -> None:
-    src_file = PATHS.raw_data / "labels" / label_csv
+    src_file = PATHS.raw_data / "Labels" / label_csv
 
     if not src_file.exists():
         raise FileNotFoundError(f"Raw label file not found: {src_file}")
