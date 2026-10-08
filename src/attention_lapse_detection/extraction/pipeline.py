@@ -14,8 +14,6 @@ OVERLAY_FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 class Pipeline:
-    """Runs the frame -> landmarks -> features loop."""
-
     def __init__(
         self,
         reader: FrameReader,
@@ -39,42 +37,44 @@ class Pipeline:
             if packet is None:
                 break
 
-            row = self.extractor.extract(packet, self.detector.detect(packet))
+            marks = self.detector.detect(packet)
+            row = self.extractor.extract(packet, marks)
             rows.append(row)
 
-            if self.show and not self._draw(packet.frame, row, packet.timestamp_ms):
-                break
+            if self.show:
+                keep_going = self.draw(packet.frame, row, packet.timestamp_ms)
+                if not keep_going:
+                    break
 
         self.reader.release()
         self.detector.close()
-        if self.face_mesh:
+        if self.face_mesh is not None:
             self.face_mesh.close()
         cv2.destroyAllWindows()
 
         return rows
 
-    def _draw(self, frame, row: FeatureRow, timestamp_ms: int) -> bool:
-        total_blinks = self.extractor.blink_counter.total_blinks
+    def draw(self, frame, row: FeatureRow, timestamp_ms: int) -> bool:
+        # Show the total blink count, not the frame event.
+        blinks_so_far = self.extractor.blink_counter.total_blinks
 
-        if self.face_mesh:
+        if self.face_mesh is not None:
             self.face_mesh.detect(frame=frame, timestamp_ms=timestamp_ms)
             self.face_mesh.draw(
-                frame, row.gaze_x, row.gaze_y, row.perclos, total_blinks
+                frame, row.gaze_x, row.gaze_y, row.perclos, blinks_so_far
             )
 
-        cv2.putText(
-            frame,
+        perclos_pct = round4(row.perclos * 100)
+        info_line = (
             f"EAR {row.ear}, Pitch {row.pitch}, Roll {row.roll}, Yaw {row.yaw}, "
-            f"MAR {row.mar}, PERCLOS {round4(row.perclos * 100)}%, Blinks {total_blinks}, "
-            f"Gaze: x:{row.gaze_x}, y:{row.gaze_y}",
-            (10, 30),
-            OVERLAY_FONT,
-            0.7,
-            (255, 0, 0),
-            2,
+            f"MAR {row.mar}, PERCLOS {perclos_pct}%, Blinks {blinks_so_far}, "
+            f"Gaze: x:{row.gaze_x}, y:{row.gaze_y}"
         )
-        cv2.imshow("Pipeline", frame)
-        return cv2.waitKey(1) != ord("q")
+        cv2.putText(frame, info_line, (10, 30), OVERLAY_FONT, 0.7, (255, 0, 0), 2)
+        cv2.imshow("Video features", frame)
+
+        pressed = cv2.waitKey(1)
+        return pressed != ord("q")
 
 
 def build_pipeline(
@@ -84,23 +84,27 @@ def build_pipeline(
     show: bool = False,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> Pipeline:
-    """The standard frame -> landmarks -> features wiring.
+    reader = FrameReader(
+        source=source,
+        mirror=mirror,
+        target_fps=target_fps,
+        window_seconds=window_seconds,
+    )
+    detector = LandmarkDetector(
+        model_path=str(PATHS.face_landmarker),
+        running_mode=vision.RunningMode.VIDEO,
+    )
+    extractor = FeatureExtractor()
 
-    mirror defaults to False, matching how script 01 extracted the training data:
-    a mirrored frame flips the sign of roll and yaw.
-    """
+    if show:
+        face_mesh = LiveFaceMesh(PATHS.face_landmarker)
+    else:
+        face_mesh = None
+
     return Pipeline(
-        reader=FrameReader(
-            source=source,
-            mirror=mirror,
-            target_fps=target_fps,
-            window_seconds=window_seconds,
-        ),
-        detector=LandmarkDetector(
-            model_path=str(PATHS.face_landmarker),
-            running_mode=vision.RunningMode.VIDEO,
-        ),
-        extractor=FeatureExtractor(),
-        face_mesh=LiveFaceMesh(PATHS.face_landmarker) if show else None,
+        reader=reader,
+        detector=detector,
+        extractor=extractor,
+        face_mesh=face_mesh,
         show=show,
     )

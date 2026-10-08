@@ -15,7 +15,7 @@ from attention_lapse_detection.training.metrics import (
     per_clip,
     ap_disengaged,
 )
-from attention_lapse_detection.core_models.registry import CLASSIFIERS_BY_CLASS_NAME
+from attention_lapse_detection.core_models.registry import CLASSIFIER_NAMES
 from attention_lapse_detection.utils.checkpoints import resolve_checkpoint
 from attention_lapse_detection.utils.csv_log import append_row, read_rows
 from attention_lapse_detection.utils.data_paths import features_id_from_drops, load_clean_split
@@ -63,7 +63,7 @@ def predict(model: torch.nn.Module, X: np.ndarray) -> np.ndarray:
 
 def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
     bundle = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    model = CLASSIFIERS_BY_CLASS_NAME[bundle["model_class"]](**bundle["model_kwargs"])
+    model = CLASSIFIER_NAMES[bundle["model_class"]](**bundle["model_kwargs"])
     model.load_state_dict(bundle["state_dict"])
 
     fps = bundle["fps"]
@@ -132,7 +132,7 @@ if __name__ == "__main__":
     for name in args.checkpoints:
         path = resolve_checkpoint(name)
         if path.stem in scored:
-            print(f"skip {path.stem}: already in {args.out}")
+            print(f"Skipping {path.stem}: results already saved in {args.out}")
             continue
 
         row = evaluate(path, args.resamples, args.out)
@@ -142,8 +142,8 @@ if __name__ == "__main__":
             f"{row['checkpoint']}: clip AP {round4(row['test_clip_ap'])} "
             f"[{round4(row['test_clip_ci_lo'])}, {round4(row['test_clip_ci_hi'])}] | "
             f"weighted F1 {round4(row['test_weighted_f1'])} | "
-            f"acc {round4(row['test_accuracy'])} | "
-            f"disengaged P {round4(row['test_precision_disengaged'])} "
-            f"R {round4(row['test_recall_disengaged'])} | "
-            f"caught {row['tp']}/{row['tp'] + row['fn']}"
+            f"accuracy {round4(row['test_accuracy'])} | "
+            f"disengaged precision {round4(row['test_precision_disengaged'])} "
+            f"recall {round4(row['test_recall_disengaged'])} | "
+            f"disengaged windows detected: {row['tp']}/{row['tp'] + row['fn']}"
         )

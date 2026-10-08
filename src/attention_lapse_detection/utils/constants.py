@@ -31,8 +31,8 @@ STRIDE_SECONDS = 5
 DEFAULT_FPS = 10
 
 
-# Eye counts as closed at or below this EAR, PERCLOS is the closed fraction over
-# the trailing window. Justification for the chosen threshold is provided in the thesis.
+# EAR at or below this threshold counts as closed; see the thesis for rationale.
+# PERCLOS is the closed-eye fraction over the rolling window.
 EAR_CLOSED_THRESHOLD = 0.20
 PERCLOS_WINDOW_SECONDS = 10.0
 
@@ -49,7 +49,7 @@ WINDOW_METADATA_COLUMNS = [
 
 
 EPOCHS = 50  # upper bound
-PATIENCE = 4  # epochs without val AP improvement before stopping
+PATIENCE = 4  # Stop after this many epochs without better validation AP.
 
 WEIGHT_DECAY = 1e-4
 

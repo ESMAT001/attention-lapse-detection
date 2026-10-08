@@ -42,7 +42,7 @@ def train_and_report(
     epochs: int = EPOCHS,
     patience: int = PATIENCE,
 ) -> Trainer:
-    """Fit with early stopping on val AP, then report."""
+    """Train with early stopping on validation AP and report results."""
 
     trainer = Trainer(model, train_loader, val_loader, criterion, optimizer)
     trainer.fit(epochs=epochs, early_stopping=True, patience=patience)
@@ -68,7 +68,7 @@ def save_checkpoint(
 
     if not scaler_path.is_file():
         raise FileNotFoundError(
-            f"{scaler_path} not found. Re-run 03_clean_extracted_data.py for this "
+            f"Scaler not found: {scaler_path}. Run 03_clean_extracted_data.py for this data build."
         )
 
     with open(scaler_path) as f:
@@ -79,7 +79,7 @@ def save_checkpoint(
     bundle = {
         "model_class": type(model).__name__,
         "model_kwargs": model_kwargs,
-        # Saved on CPU so a bundle trained on a GPU loads anywhere.
+        # Save weights on CPU so the checkpoint can load on any device.
         "state_dict": {k: v.cpu() for k, v in model.state_dict().items()},
         "scaler": scaler,
         "threshold": threshold,
@@ -94,10 +94,10 @@ def save_checkpoint(
     torch.save(bundle, out_path)
 
     print(
-        f"Saved checkpoint : {out_path}\n"
-        f"  class={bundle['model_class']} threshold={round4(threshold)} "
-        f"(val precision {round4(prec)}, recall {round4(rec)}) "
-        f"val_ap={round4(trainer.best_val_ap)}"
+        f"Saved checkpoint to {out_path}\n"
+        f"  model: {bundle['model_class']}, threshold: {round4(threshold)} "
+        f"(validation precision {round4(prec)}, recall {round4(rec)}) "
+        f"validation AP: {round4(trainer.best_val_ap)}"
     )
 
 
@@ -108,9 +108,7 @@ def train_model(
     seed: int = SEED,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> Trainer:
-    """Train one architecture on one data build at its searched hyperparameters.
-
-    The single training path behind script 04 and the experiment runner 07.
+    """Train one model on cleaned feature windows.
     """
     drop_columns = drop_columns or []
 
@@ -139,7 +137,7 @@ def train_model(
 
 
 def create_arg_parser(description: str | None = None):
-    """The training argument parser."""
+    """Parse training options."""
 
     parser = argparse.ArgumentParser(
         description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -168,7 +166,7 @@ def create_arg_parser(description: str | None = None):
         choices=FEATURE_COLUMNS,
         metavar="COL",
         help=(
-            "Feature columns that were dropped at clean time. Choices: "
+            "Features removed during cleaning. Choices: "
             + ", ".join(FEATURE_COLUMNS)
             + ". Default: none."
         ),
@@ -179,8 +177,8 @@ def create_arg_parser(description: str | None = None):
         type=int,
         default=DEFAULT_WINDOW_SECONDS,
         help=(
-            f"Window length in seconds (default {DEFAULT_WINDOW_SECONDS}), selects which "
-            "cleaned build under clean/{n}s/ to train on. Stage 03 must already have produced it."
+            f"Window length in seconds (default: {DEFAULT_WINDOW_SECONDS}). "
+            "Run script 03 for this window length first."
         ),
     )
 

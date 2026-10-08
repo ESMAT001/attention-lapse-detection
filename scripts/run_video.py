@@ -1,4 +1,4 @@
-"""Preview the feature pipeline on one dataset video and print its feature rows."""
+"""Preview a dataset video and print its features."""
 
 import argparse
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--video",
         default="9877360271",
-        help="Video id (the .avi base name), e.g. 9877360271.",
+        help="Video ID without .avi, e.g. 9877360271.",
     )
     args = parser.parse_args()
     
@@ -29,9 +29,8 @@ if __name__ == "__main__":
         / f"{args.video}.avi"
     )
 
-    # mirror=True is this script's default and flips the sign of roll and yaw
-    # relative to how the model was trained. Preserved as-is.
-    # pass mirror=False to read the signs the way run_live.py prints them.
+    # Mirroring flips roll/yaw signs relative to training.
+    # Use mirror=False to match run_live.py.
     pipeline = build_pipeline(source=video_path, mirror=True, show=True)
 
     for row in pipeline.run():

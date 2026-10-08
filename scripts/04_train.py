@@ -1,4 +1,4 @@
-"""Train one architecture on a cleaned data build, at its searched hyperparameters.
+"""Train a model on cleaned feature windows.
 
 uv run python scripts/04_train.py --model lstm_uni_attention --window-seconds 10
 """

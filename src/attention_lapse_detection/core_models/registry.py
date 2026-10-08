@@ -11,4 +11,4 @@ CLASSIFIERS = {
     "lstm_uni_attention": LSTMUniAttention,
 }
 
-CLASSIFIERS_BY_CLASS_NAME = {cls.__name__: cls for cls in CLASSIFIERS.values()}
+CLASSIFIER_NAMES = {cls.__name__: cls for cls in CLASSIFIERS.values()}

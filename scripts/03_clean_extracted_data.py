@@ -1,4 +1,4 @@
-"""Impute, clip and standardize merged windows into the clean arrays training reads."""
+"""Fill missing values, clip outliers and scale feature windows for training."""
 
 import argparse
 import json
@@ -38,16 +38,16 @@ def clean_split(
     scaler: FeatureScaler | None,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> FeatureScaler | None:
-    """Clean one split, returning the scaler (fit here when split is Train)."""
+    """Clean a split and return the scaler, fitted on Train only."""
 
     npz_path = merged_npz(fps, split, window_seconds)
 
     if not npz_path.is_file():
-        print(f"[{split}] {npz_path} not found, skipping.")
+        print(f"[{split}] Skipping: file not found at {npz_path}.")
         return scaler
 
     if split != "Train" and scaler is None:
-        print(f"[{split}] no Train scaler yet, skipping.")
+        print(f"[{split}] Skipping: clean Train first to fit the scaler.")
         return scaler
 
     data = np.load(npz_path, allow_pickle=True)
@@ -102,14 +102,14 @@ def build_long_dataframe(
 def clean_dataframe(
     df: pd.DataFrame, active_features: list[str], scaler: FeatureScaler | None
 ) -> tuple[pd.DataFrame, FeatureScaler]:
-    """Impute, clip and standardize. scaler=None fits one (Train); else it is reused."""
+    """Fill, clip and scale features. Fit a scaler if none is supplied (Train only)."""
     df = df.copy()
 
     df = impute_absent_frames(df, active_features)
 
     scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
 
-    # ear/mar are ratios that can't go negative: a fixed floor, so it precedes the fit.
+    # EAR and MAR cannot be negative; apply the fixed floor before fitting.
     for column in ("ear", "mar"):
         if column in scaled_features:
             df[column] = df[column].clip(lower=0)
@@ -123,7 +123,7 @@ def clean_dataframe(
 
 
 def impute_absent_frames(df: pd.DataFrame, active_features: list[str]) -> pd.DataFrame:
-    """Forward fill zero filled features on missing-face frames."""
+    """Fill missing-face features forward, then backward within each window."""
 
     if "face_present" not in df.columns:
         return df
@@ -158,7 +158,7 @@ def fit_scaler(df: pd.DataFrame, scaled_features: list[str]) -> FeatureScaler:
 def transform_features(
     df: pd.DataFrame, scaled_features: list[str], scaler: FeatureScaler
 ):
-    """Quantile-clip, standardize and std-clip in place from fitted stats."""
+    """Apply fitted clipping bounds, standardize, then clip extreme scaled values."""
     df[scaled_features] = df[scaled_features].clip(
         scaler.quantile_low, scaler.quantile_high, axis=1
     )
@@ -173,7 +173,7 @@ def to_window_arrays(df: pd.DataFrame, window_size: int, active_features: list[s
 
     counts = df.groupby("sample_id", sort=False).size()
     bad = counts[counts != window_size]
-    assert bad.empty, f"windows with != {window_size} frames:{bad}"
+    assert bad.empty, f"Expected {window_size} frames per window. Mismatched windows: {bad}"
 
     X_clean = (
         df[active_features]
@@ -196,7 +196,7 @@ def write_scaler(
     window_size: int,
     fps: int,
 ):
-    """Persisting the Train-split preprocessing so inference can reproduce it."""
+    """Save the training scaler for inference."""
 
     scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
     payload = {
@@ -215,7 +215,7 @@ def write_scaler(
     }
 
     (out_dir / "scaler.json").write_text(json.dumps(payload, indent=2))
-    print(f"[Train] wrote scaler.json ({len(scaled_features)} scaled features)")
+    print(f"[Train] Saved scaler.json ({len(scaled_features)} scaled features)")
 
 
 if __name__ == "__main__":
@@ -225,7 +225,7 @@ if __name__ == "__main__":
         type=int,
         choices=list(FPS_OPTIONS),
         default=None,
-        help="Target fps. Omit to run every fps.",
+        help="Frame rate. Omit to use all frame rates.",
     )
     parser.add_argument(
         "--drop-columns",
@@ -244,7 +244,7 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help=(
-            f"Window length to clean. Omit to clean every variant in {list(WINDOW_SECONDS_OPTIONS)}."
+            f"Window length in seconds. Omit to clean all lengths: {list(WINDOW_SECONDS_OPTIONS)}."
         ),
     )
     args = parser.parse_args()
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     fps_variants = resolve_variants(args.fps, FPS_OPTIONS)
     window_variants = resolve_variants(args.window_seconds, WINDOW_SECONDS_OPTIONS)
     if any(window < 1 for window in window_variants):
-        parser.error("--window-seconds must be >= 1")
+        parser.error("--window-seconds must be at least 1")
 
     for window_seconds in window_variants:
         for fps in fps_variants:

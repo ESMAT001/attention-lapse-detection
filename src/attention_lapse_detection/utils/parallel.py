@@ -1,7 +1,6 @@
-"""Importing this module pins every numeric backend to one thread, and must happen
-before numpy and mediapipe load, because each reads these variables once at
-import. Otherwise every worker sizes its own thread pool to the whole machine
-and N workers x N threads oversubscribes the cores.
+"""Default numeric backends to one thread per worker to avoid CPU oversubscription.
+
+Import before NumPy and MediaPipe. Existing thread settings are kept.
 """
 
 import os

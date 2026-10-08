@@ -6,7 +6,7 @@ from attention_lapse_detection.utils.constants import FEATURE_COLUMNS
 
 @dataclass
 class FramePacket:
-    """One frame read by FrameReader, with its timestamp and post-downsampling index."""
+    """A frame, its timestamp and its index after downsampling."""
 
     frame: np.ndarray
     timestamp_ms: int
@@ -34,14 +34,14 @@ class FeatureRow:
         return asdict(self)
 
     def to_list(self) -> list[float]:
-        """The values the model sees, in FEATURE_COLUMNS order."""
+        """Feature values in model input order (FEATURE_COLUMNS)."""
         row = self.to_dict()
         return [float(row[column]) for column in FEATURE_COLUMNS]
 
 
 @dataclass
 class FeatureWindow:
-    """A fixed-length slice of consecutive frames, used as one model input."""
+    """A fixed window of frames for one model input."""
 
     video_id: str
     engagement: int
@@ -74,7 +74,7 @@ class FeatureWindow:
 
 @dataclass
 class VideoResult:
-    """Every per-frame FeatureRow from one video"""
+    """Feature rows from one video."""
 
     video_id: str
     engagement: int
@@ -94,13 +94,13 @@ class VideoResult:
     def to_windows(
         self, window_size: int, stride: int | None = None
     ) -> list[FeatureWindow]:
-        """Slice the frame rows into fixed-size windows"""
+        """Split feature rows into fixed-size windows."""
         if stride is None:
             stride = window_size
 
         windows = []
 
-        # Stop early enough that the last window still has window_size frames
+        # Keep only full windows.
         for window_index, start in enumerate(
             range(0, len(self.features) - window_size + 1, stride)
         ):
@@ -132,3 +132,6 @@ class FeatureScaler:
     std: pd.Series
     quantile_low: pd.Series
     quantile_high: pd.Series
+
+
+RawRows = list[dict[str, float]]

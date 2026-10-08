@@ -1,10 +1,7 @@
-"""Experiment runner: architecture x window comparison, feature ablation.
+"""Compare architectures, window lengths and feature sets across seeds.
 
-Trains every (model, window, feature variant, seed) combination on one data
-build at the hyperparameters the search adopted for it. Appends one CSV row per
-finished run.
-
-(--ablate) drop one feature at a time and reuse the full-feature hyperparameters
+Use tuned settings and save one CSV row per run. With --ablate, drop each
+named feature separately and reuse the settings tuned on all features.
 """
 
 import argparse
@@ -184,7 +181,7 @@ def run_once(
 
 
 def completed_runs(path: Path) -> set[tuple]:
-    """The (model, build, features, seed) keys already logged, so a rerun skips them."""
+    """Find completed runs so they can be skipped."""
 
     return {
         (
@@ -219,7 +216,7 @@ if __name__ == "__main__":
         choices=FEATURE_COLUMNS,
         default=None,
         metavar="COL",
-        help=("Run one variant per named feature, that feature dropped alone."),
+        help=("Drop each named feature in a separate run."),
     )
     parser.add_argument("--seeds", nargs="*", type=int, default=DEFAULT_SEEDS)
     parser.add_argument("--out", type=Path, default=RESULTS_CSV)
@@ -232,7 +229,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="List the runs that would execute and exit.",
+        help="List planned runs and exit.",
     )
     args = parser.parse_args()
 
@@ -255,13 +252,13 @@ if __name__ == "__main__":
         not in done
     ]
 
-    print(f"Total runs to execute: {len(runs)} ({len(done)} already completed)")
+    print(f"Runs to start: {len(runs)} ({len(done)} already recorded)")
 
     if args.dry_run:
         for model_name, window_seconds, drop_columns, seed in runs:
             features_id = features_id_from_drops(drop_columns)
             print(
-                f"Model: {model_name}, Window: {window_seconds}, Drop: {drop_columns}, Seed: {seed}"
+                f"Model: {model_name}, window: {window_seconds}s, dropped features: {drop_columns}, seed: {seed}"
             )
             sys.exit(0)
 
@@ -281,5 +278,5 @@ if __name__ == "__main__":
         )
         append_row(args.out, FIELDS, row)
         print(
-            f"Completed run: Model: {model_name}, Window: {window_seconds}, Drop: {drop_columns}, Seed: {seed}"
+            f"Finished {model_name}: window {window_seconds}s, dropped features {drop_columns}, seed {seed}"
         )

@@ -1,4 +1,4 @@
-"""Hyperparameters adopted by the tuning/search.py, one entry per study."""
+"""Settings selected by tuning/search.py, one entry per study."""
 
 from dataclasses import dataclass
 from attention_lapse_detection.utils.constants import (
@@ -28,9 +28,8 @@ class Hyperparameters:
         )
 
 
-# (model, fps, window_seconds) -> Hyperparameters(hidden_size, num_layers,
-# dropout, learning_rate, batch_size), commented with the confirmed clip-level
-# validation AP that selected it. From the 2026-09 sweep (A40, cuda).
+# Keys: (model, fps, window_seconds). Comments show confirmed clip-level val AP.
+# September 2026 sweep on an A40 with CUDA.
 SEARCHED = {
     ("gru", 10, 5): Hyperparameters(95, 2, 0.5, 0.00242776, 8),  # 0.2344
     ("gru_uni_attention", 10, 5): Hyperparameters(107, 2, 0.25, 0.00125789, 8),  # 0.2666
@@ -59,18 +58,18 @@ SEARCHED = {
 }
 
 
-
 def hyperparameters(
     model_name: str,
     fps: int = DEFAULT_FPS,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> Hyperparameters:
-    """The searched setting for one architecture on one data build."""
-
-    key = (model_name, fps, window_seconds)
-    if key not in SEARCHED:
+    lookup_key = (model_name, fps, window_seconds)
+    if lookup_key not in SEARCHED:
         raise KeyError(
-            f"No searched hyperparameters for model={model_name} "
-            f"fps={fps} window_seconds={window_seconds}."
+            f"No search settings for model={model_name} "
+            f"fps={fps} window_seconds={window_seconds}. Run:\n"
+            f"  uv run python tuning/search.py --model {model_name} "
+            f"--fps {fps} --window-seconds {window_seconds}\n"
+            "Then copy the printed entry into SEARCHED."
         )
-    return SEARCHED[key]
+    return SEARCHED[lookup_key]

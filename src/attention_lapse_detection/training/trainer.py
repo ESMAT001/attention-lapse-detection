@@ -13,9 +13,7 @@ from attention_lapse_detection.utils.numeric import round4
 
 
 class Trainer:
-    """Trains one model: epoch loop, validation, early stopping on val AP.
-
-    Keeps the best epoch's weights and the validation outputs it produced
+    """Train and validate a model, optionally keeping the epoch with the best AP.
     """
 
     def __init__(
@@ -34,7 +32,7 @@ class Trainer:
         self.criterion = criterion.to(self.device)
         self.optimizer = optimizer
 
-        # Validation outputs of the kept epoch, populated by fit()
+        # Validation outputs from fit().
         self.val_y_true = np.empty(0, dtype=np.int64)
         self.val_y_pred = np.empty(0, dtype=np.int64)
         self.val_probs = np.empty((0, 0), dtype=np.float32)
@@ -46,7 +44,7 @@ class Trainer:
         self.history: list[dict[str, float]] = []
 
     def train_one_epoch(self) -> float:
-        """One pass over the training data, returns the average batch loss"""
+        """Train for one epoch and return mean batch loss."""
 
         self.model.train()
         total_loss = 0.0
@@ -101,7 +99,7 @@ class Trainer:
         early_stopping: bool = False,
         patience: int = PATIENCE,
     ) -> None:
-        """Train for up to 50 epochs, optionally stopping early on val AP."""
+        """Train for the requested epochs, optionally stopping early on validation AP."""
 
         best_ap = -np.inf
         best_epoch = 0
@@ -120,9 +118,9 @@ class Trainer:
 
             log = (
                 f"Epoch {epoch}/{epochs} | "
-                f"train_loss: {round4(train_loss)} | "
-                f"val_loss: {round4(val_loss)} | "
-                f"val_acc: {round4(val_accuracy)}"
+                f"train loss: {round4(train_loss)} | "
+                f"validation loss: {round4(val_loss)} | "
+                f"validation accuracy: {round4(val_accuracy)}"
             )
 
             epoch_record: dict[str, float] = {
@@ -135,7 +133,7 @@ class Trainer:
 
             if early_stopping:
                 val_ap = ap_disengaged(y_true, probs)
-                log += f" | val_ap: {round4(val_ap)}"
+                log += f" | validation AP: {round4(val_ap)}"
                 epoch_record["val_ap"] = val_ap
 
                 if val_ap > best_ap:
@@ -151,8 +149,8 @@ class Trainer:
 
             if early_stopping and epochs_since_improvement >= patience:
                 print(
-                    f"Early stopping at epoch {epoch}: "
-                    f"no val AP improvement for {patience} epochs."
+                    f"Stopping at epoch {epoch}: "
+                    f"validation AP has not improved for {patience} epochs."
                 )
                 break
 
@@ -162,7 +160,7 @@ class Trainer:
             self.best_val_ap = best_ap
             self.best_epoch = best_epoch
             if best_state is not None:
-                # Roll back to the best epoch's weights and re-score
+                # Restore the best weights and re-evaluate.
                 self.model.load_state_dict(best_state)
                 _, _, y_true, y_pred, probs = self.evaluate()
                 self.val_y_true = y_true
@@ -170,7 +168,7 @@ class Trainer:
                 self.val_probs = probs
             print(
                 f"Best epoch: {best_epoch} | "
-                f"best val AP: {round4(best_ap)} | "
+                f"validation AP: {round4(best_ap)} | "
                 f"epochs run: {last_epoch}"
             )
 
@@ -184,5 +182,5 @@ class Trainer:
                 zero_division=0,
             )
         )
-        print("Confusion matrix (rows = true, cols = predicted):")
+        print("Confusion matrix (rows: actual, columns: predicted):")
         print(confusion_matrix(self.val_y_true, self.val_y_pred))

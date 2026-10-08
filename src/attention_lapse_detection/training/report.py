@@ -14,12 +14,12 @@ def report_ap(trainer: Trainer) -> None:
     y_pos = (y_val == 0).astype(int)
 
     ap = average_precision_score(y_pos, probs_disengaged)
-    baseline = y_pos.mean()  # random-guess AP = base rate of disengaged
-    print(f"AP (disengaged): {round4(ap)}  |   baseline (random): {round4(baseline)}")
+    baseline = y_pos.mean()  # Random AP baseline: fraction of disengaged samples.
+    print(f"Disengagement AP: {round4(ap)} | random baseline: {round4(baseline)}")
 
     best_thr, best_prec, best_rec = best_f1_threshold(trainer)
     print(
-        f"best-F1 threshold: {round4(best_thr)} -> "
+        f"Best F1 threshold: {round4(best_thr)} | "
         f"precision {round4(best_prec)}, recall {round4(best_rec)}"
     )
 
@@ -29,7 +29,7 @@ def report_ap(trainer: Trainer) -> None:
     caught, total = cm[0, 0], cm[0].sum()
 
     print(
-        f"confusion matrix @ threshold {round4(best_thr)} "
-        f"(rows=true, cols=pred) [disengaged, engaged]:\n{cm}\n"
-        f"disengaged caught: {caught}/{total}"
+        f"Confusion matrix at threshold {round4(best_thr)} "
+        f"(rows: actual, columns: predicted) [disengaged, engaged]:\n{cm}\n"
+        f"Disengaged windows detected: {caught}/{total}"
     )
