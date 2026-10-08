@@ -37,6 +37,7 @@ def best_f1_threshold(trainer: Trainer) -> tuple[float, float, float]:
     best_thr = thr[min(best, len(thr) - 1)]  # thr is shorter than prec/rec by 1
     return float(best_thr), float(prec[best]), float(rec[best])
 
+
 def per_clip(
     y_true: NDArray[np.int64],
     probs: NDArray[np.float32],
@@ -52,7 +53,7 @@ def per_clip(
             f"{len(clip_ids)} clip ids for {len(y_true)} windows; the clean "
             "arrays and their metadata are out of sync."
         )
-    
+
     windows = pd.DataFrame(
         {
             "clip": clip_ids,
@@ -70,7 +71,7 @@ def per_clip(
             f"{conflicting[:3]}. Every window inherits its clip's label, so this "
             "means the labels and the window metadata are out of sync."
         )
-    
+
     return windows.groupby("clip").agg(y=("y", "first"), p=("p", "mean"))
 
 
@@ -83,3 +84,35 @@ def clip_ap(
 
     clips = per_clip(y_true, probs, clip_ids)
     return float(average_precision_score(clips.y, clips.p))
+
+
+def participant_ids(clip_ids: NDArray):
+    return pd.Index(clip_ids).str[:6].to_numpy()
+
+
+def clip_bootstrap_ci(
+    y_true: NDArray[np.int64],
+    probs: NDArray[np.float32],
+    clip_ids: NDArray,
+    resamples: int = 2000,
+    seed: int = 0,
+):
+    clips = per_clip(y_true, probs, clip_ids)
+    y, p = clips.y.to_numpy(), clips.p.to_numpy()
+    if y.sum() == 0:
+        raise ValueError(
+            "this split has no disengaged clips, so there is nothing to rank and no interval to bootstrap."
+        )
+
+    participants = participant_ids(clips.index.to_numpy())
+    groups = [np.flatnonzero(participants == pid) for pid in np.unique(participants)]
+
+    rng = np.random.default_rng(seed)
+    scores = []
+    for _ in range(resamples):
+        pick = rng.integers(0, len(groups), len(groups))
+        idx = np.concatenate([groups[k] for k in pick])
+        if y[idx].sum() == 0:
+            continue
+        scores.append(average_precision_score(y[idx], p[idx]))
+    return float(np.percentile(scores, 2.5)), float(np.percentile(scores, 97.5))
