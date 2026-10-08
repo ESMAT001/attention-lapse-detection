@@ -57,62 +57,68 @@ class Detector:
 
     @classmethod
     def load(cls, path: str | Path) -> "Detector":
-        bundle = torch.load(Path(path), map_location="cpu", weights_only=False)
+        checkpoint = torch.load(Path(path), map_location="cpu", weights_only=False)
 
-        model_cls = CLASSIFIER_NAMES.get(bundle["model_class"])
+        model_class = CLASSIFIER_NAMES.get(checkpoint["model_class"])
 
-        if model_cls is None:
-            raise KeyError(f"Unknown model_class {bundle['model_class']}")
+        if model_class is None:
+            raise KeyError(f"Unknown model_class {checkpoint['model_class']}")
 
-        model = model_cls(**bundle["model_kwargs"])
-        model.load_state_dict(bundle["state_dict"])
+        model = model_class(**checkpoint["model_kwargs"])
+        model.load_state_dict(checkpoint["state_dict"])
 
         meta = {
-            "model_class": bundle["model_class"],
-            "fps": bundle["fps"],
-            "drop_columns": bundle["drop_columns"],
-            "val_ap": bundle["val_ap"],
+            "model_class": checkpoint["model_class"],
+            "fps": checkpoint["fps"],
+            "drop_columns": checkpoint["drop_columns"],
+            "val_ap": checkpoint["val_ap"],
         }
 
-        return cls(model, bundle["scaler"], float(bundle["threshold"]), meta)
+        return cls(model, checkpoint["scaler"], float(checkpoint["threshold"]), meta)
 
     def standardize(self, raw_window: NDArray[np.floating]) -> NDArray[np.float32]:
         s = self.scaler
-        raw = np.asarray(raw_window, dtype=np.float64)
-        if raw.ndim != 2 or raw.shape[1] != len(self.feature_order):
+        raw_arr = np.asarray(raw_window, dtype=np.float64)
+
+        if raw_arr.ndim != 2 or raw_arr.shape[1] != len(self.feature_order):
             raise ValueError(
                 f"expected (T, {len(self.feature_order)}) in feature order "
-                f"{self.feature_order}, got {raw.shape}"
+                f"{self.feature_order}, got {raw_arr.shape}"
             )
 
-        out = raw.copy()
+        current_feature_arr = raw_arr.copy()
         absent = (
-            out[:, self.feature_order.index("face_present")] == 0
+            current_feature_arr[:, self.feature_order.index("face_present")] == 0
             if "face_present" in self.feature_order
-            else np.zeros(out.shape[0], dtype=bool)
+            else np.zeros(current_feature_arr.shape[0], dtype=bool)
         )
 
         for j, feature in enumerate(self.feature_order):
             if feature in s["binary_features"]:
                 continue
 
-            column = out[:, j]
+            column = current_feature_arr[:, j]
+
             if feature in self.impute_on_absent:
                 column = fill_absent(column, absent)
+
             if feature in s["clip_lower_zero"]:
                 column = np.clip(column, 0.0, None)
+
             column = np.clip(
                 column, s["quantile_low"][feature], s["quantile_high"][feature]
             )
-            column = (column - s["mean"][feature]) / s["std"][feature]
-            out[:, j] = np.clip(column, -s["std_clip"], s["std_clip"])
 
-        return np.nan_to_num(out, nan=0.0).astype(np.float32)
+            column = (column - s["mean"][feature]) / s["std"][feature]
+            current_feature_arr[:, j] = np.clip(column, -s["std_clip"], s["std_clip"])
+
+        return np.nan_to_num(current_feature_arr, nan=0.0).astype(np.float32)
 
     @torch.no_grad()
     def predict(self, raw_window: NDArray[np.floating]) -> Prediction:
         tensor = torch.from_numpy(self.standardize(raw_window)).unsqueeze(0)
         probs = torch.softmax(self.model(tensor), dim=1).squeeze(0)
+
         return Prediction(float(probs[DISENGAGED]), self.threshold)
 
     def window_from_rows(self, rows: Sequence[dict[str, float]]) -> NDArray[np.float32]:
