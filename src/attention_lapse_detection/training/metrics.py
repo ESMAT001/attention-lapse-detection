@@ -12,19 +12,16 @@ if TYPE_CHECKING:
 
 
 def ap_disengaged(y_true: NDArray[np.int64], probs: NDArray[np.float32]):
-    """AP for the disengaged class (class 0).
+    """Compute disengagement AP from class-0 probabilities.
 
-    y_true: (N,) class indices. probs: (N, C) softmax probabilities; column 0
-    is P(disengaged), the score we rank by.
+    y_true has shape (N,); probs has shape (N, C).
     """
     is_disengaged = (y_true == 0).astype(np.int64)
     return float(average_precision_score(is_disengaged, probs[:, 0]))
 
 
 def best_f1_threshold(trainer: Trainer) -> tuple[float, float, float]:
-    """Threshold on P(disengaged) maximising validation F1, with its precision and recall.
-
-    This is the cutoff a saved model uses at inference time.
+    """Find the validation F1 cutoff for P(disengaged), with precision and recall.
     """
     y_pos = (trainer.val_y_true == 0).astype(int)
     probs_disengaged = trainer.val_probs[:, 0]
@@ -43,15 +40,12 @@ def per_clip(
     probs: NDArray[np.float32],
     clip_ids: NDArray,
 ) -> pd.DataFrame:
-    """Aggregate window predictions to one row per clip.
-
-    Windows of a clip are correlated and all carry the clip's label, so `y` comes
-    from the clip and `p` is the mean of its windows P(disengaged).
+    """Group windows by clip, keeping its label and mean P(disengaged).
     """
     if len(clip_ids) != len(y_true):
         raise ValueError(
-            f"{len(clip_ids)} clip ids for {len(y_true)} windows; the clean "
-            "arrays and their metadata are out of sync."
+            f"Found {len(clip_ids)} clip IDs for {len(y_true)} windows. "
+            "Check that the cleaned arrays match their metadata."
         )
 
     windows = pd.DataFrame(
@@ -67,9 +61,8 @@ def per_clip(
     if (labels > 1).any():
         conflicting = labels[labels > 1].index.tolist()
         raise ValueError(
-            f"{len(conflicting)} clips carry more than one window label, "
-            f"{conflicting[:3]}. Every window inherits its clip's label, so this "
-            "means the labels and the window metadata are out of sync."
+            f"Found conflicting labels in {len(conflicting)} clips, including "
+            f"{conflicting[:3]}. Check that the labels match the window metadata."
         )
 
     return windows.groupby("clip").agg(y=("y", "first"), p=("p", "mean"))
@@ -80,7 +73,7 @@ def clip_ap(
     probs: NDArray[np.float32],
     clip_ids: NDArray,
 ) -> float:
-    """AP at one window per clip."""
+    """Compute AP after averaging window predictions per clip."""
 
     clips = per_clip(y_true, probs, clip_ids)
     return float(average_precision_score(clips.y, clips.p))
@@ -101,7 +94,7 @@ def clip_bootstrap_ci(
     y, p = clips.y.to_numpy(), clips.p.to_numpy()
     if y.sum() == 0:
         raise ValueError(
-            "this split has no disengaged clips, so there is nothing to rank and no interval to bootstrap."
+            "Cannot bootstrap AP: this split has no disengaged clips."
         )
 
     participants = participant_ids(clips.index.to_numpy())

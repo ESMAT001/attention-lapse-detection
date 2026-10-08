@@ -42,7 +42,7 @@ class Pipeline:
             rows.append(row)
 
             if self.show:
-                keep_going = self.paint_overlay(packet.frame, row, packet.timestamp_ms)
+                keep_going = self.draw(packet.frame, row, packet.timestamp_ms)
                 if not keep_going:
                     break
 
@@ -54,13 +54,15 @@ class Pipeline:
 
         return rows
 
-    def paint_overlay(self, frame, row: FeatureRow, timestamp_ms: int) -> bool:
+    def draw(self, frame, row: FeatureRow, timestamp_ms: int) -> bool:
         # Show the total blink count, not the frame event.
         blinks_so_far = self.extractor.blink_counter.total_blinks
 
         if self.face_mesh is not None:
             self.face_mesh.detect(frame=frame, timestamp_ms=timestamp_ms)
-            self.face_mesh.draw(frame, row.gaze_x, row.gaze_y, row.perclos, blinks_so_far)
+            self.face_mesh.draw(
+                frame, row.gaze_x, row.gaze_y, row.perclos, blinks_so_far
+            )
 
         perclos_pct = round4(row.perclos * 100)
         info_line = (

@@ -7,7 +7,7 @@ from attention_lapse_detection.utils.constants import SEED
 
 
 def set_seed(seed: int = SEED) -> torch.Generator:
-    """Seed Python, NumPy and PyTorch, return a Generator for DataLoaders."""
+    """Seed Python, NumPy and PyTorch; return a seeded DataLoader generator."""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

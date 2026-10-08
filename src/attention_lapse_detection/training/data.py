@@ -44,7 +44,7 @@ def load_clean_splits(
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
     active_features = [c for c in FEATURE_COLUMNS if c not in drop_columns]
 
-    print(f"Loading from {src}")
+    print(f"Loading data from {src}")
     print(f"Features ({len(active_features)}): {active_features}")
     print(f"Window: {window_seconds}s | Seed: {seed}")
 
@@ -81,7 +81,7 @@ def make_loaders(
 
 
 def balanced_class_weights(y_train: NDArray[np.int64]) -> torch.Tensor:
-    """Weight the rare class up so it is not ignored. Full balancing, about 11:1."""
+    """Balance class weights by their training frequencies."""
 
     weights = compute_class_weight(
         class_weight="balanced", classes=np.unique(y_train), y=y_train
@@ -99,7 +99,7 @@ def load_clip_ids(
     split: str,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> NDArray:
-    """The clip each window of a split came from, in .npy row order."""
+    """Load clip IDs in the same order as the window arrays."""
     
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
     meta = pd.read_csv(src / f"{split}_window_metadata_clean.csv")

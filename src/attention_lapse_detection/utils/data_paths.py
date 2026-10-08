@@ -10,7 +10,8 @@ from attention_lapse_detection.utils.paths import PATHS
 
 
 def features_id_from_drops(drop_columns: list[str]) -> str:
-    """Directory tag for one feature set"""
+    """Directory name for a feature set."""
+    
     if not drop_columns:
         return "all_features"
     return "drop_" + "_".join(sorted(drop_columns))
@@ -96,7 +97,7 @@ def load_clean_split(
     split: str,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ):
-    """Load one cleaned split by name: "Train", "Validation" or "Test" """
+    """Load the cleaned Train, Validation or Test arrays."""
 
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
     X = np.load(src / f"X_{split}_windows_clean.npy")

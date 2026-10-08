@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class LSTMUniAttention(nn.Module):
-    """LSTM with uni-directional attention mechanism.
+    """Unidirectional LSTM with attention pooling.
 
     Each timestep is scored as score_t = v^T tanh(W h_t + b).
     """

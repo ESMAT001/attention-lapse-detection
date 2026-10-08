@@ -1,8 +1,8 @@
-"""One independent Optuna study per (architecture, data build).
+"""Tune each model and data build with Optuna.
 
-Each study is over five hyperparameters: learning rate, dropout, batch size, depth and hidden size.
-Maximising mean validation AP over three fixed seeds. The top candidates are then rescored on seeds
-the search never saw, and the higher confirmed mean is adopted.
+Search learning rate, dropout, batch size, depth and hidden size using mean
+clip-level validation AP over three seeds. Rescore top candidates on separate
+seeds and keep the one with the highest confirmed mean.
 """
 
 import argparse
@@ -88,7 +88,7 @@ class Build:
 
 @dataclass(frozen=True)
 class Result:
-    """A config rescored on the confirmation seeds"""
+    """A configuration scored on the confirmation seeds."""
 
     config: Hyperparameters
     mean: float
@@ -108,11 +108,7 @@ def all_builds() -> list[Build]:
 
 @lru_cache(maxsize=1)
 def load_data(build: Build) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Train and validation windows for one build, loaded once.
-
-    The split is fixed; a seed changes initialisation and batch order, never the data,
-    so every run of a study reuses these arrays. Cached one build deep, since studies are run one build at a time.
-    """
+    """Cache one build's fixed train/validation arrays for reuse across seeds."""
     X_train, y_train = load_clean_split(
         build.fps, DROP_COLUMNS, "Train", build.window_seconds
     )
@@ -133,7 +129,7 @@ def validation_clip_ids(build: Build) -> np.ndarray:
 
 
 def entry(model_name: str, build: Build, pick: Result) -> str:
-    """The pick as a line to paste into hyperparameters"""
+    """Format the selected settings for hyperparameters.py."""
     config = pick.config
 
     return (
@@ -153,18 +149,20 @@ def report(model_name: str, build: Build, results: list[Result], pick: Result):
             f"  {round4(result.mean)} +/- {round4(result.sem)}  "
             f"{result.params,} params  {result.config}"
         )
-    print(f"  pick: {pick.config}  ({round4(pick.mean)}, {pick.params:,} params)")
+    print(
+        f"  Selected: {pick.config}  (AP {round4(pick.mean)}, {pick.params:,} parameters)"
+    )
 
 
 def select(results: list[Result]) -> Result:
-    """Adopt the candidate with the highest confirmed mean."""
+    """Choose the candidate with the highest confirmed mean AP."""
     return max(results, key=lambda result: result.mean)
 
 
 def confirm(
     model_name: str, build: Build, configs: list[Hyperparameters], device: torch.device
 ) -> list[Result]:
-    """Rescore the top candidates on seeds the search never saw."""
+    """Rescore top candidates on separate confirmation seeds."""
 
     results = []
     for config in configs:
@@ -193,7 +191,7 @@ def train_once(
     seed: int,
     device: torch.device,
 ) -> float:
-    """One training run, returns clip level validation AP."""
+    """Train once and return clip-level validation AP."""
 
     X_train, y_train, X_val, y_val = load_data(build)
     generator = set_seed(seed)
@@ -224,7 +222,7 @@ def score(
     seeds: list[int],
     device: torch.device,
 ) -> tuple[float, float]:
-    """Mean and standard error of clip level val AP over seeds."""
+    """Return mean clip-level validation AP and its standard error across seeds."""
 
     scores = [train_once(model_name, build, config, seed, device) for seed in seeds]
     return float(np.mean(scores)), float(np.std(scores) / np.sqrt(len(scores)))
@@ -247,10 +245,7 @@ def search(
     device: torch.device,
     log_row: Callable[..., None],
 ) -> list[Hyperparameters]:
-    """TPE over the space, best first. Nothing is adopted from here.
-
-    one trial at a time so the seeded sampler replays exactly.
-    """
+    """Rank configurations with sequential TPE trials; confirm the top ones later."""
 
     def objective(trial: optuna.Trial) -> float:
         config = suggest(trial)
@@ -277,7 +272,7 @@ def search(
 
 
 def row_writer(path: Path, model_name: str, build: Build, device: torch.device):
-    """Append one CSV row per trial, so a crash costs one study and not the run."""
+    """Save each trial to CSV as it finishes."""
 
     def write(
         stage: str,
@@ -312,7 +307,7 @@ def row_writer(path: Path, model_name: str, build: Build, device: torch.device):
 
 
 def completed_studies(path: Path) -> set[tuple[str, int, int]]:
-    """Studies that already produced a pick, so a resumed run skips them."""
+    """Find studies with a saved selection so they can be skipped."""
 
     return {
         (row["model"], int(row["fps"]), int(row["window_seconds"]))
@@ -351,7 +346,7 @@ if __name__ == "__main__":
         "--confirm-top",
         type=int,
         default=2,
-        help="Number of top configs to rescore",
+        help="Number of top configurations to confirm.",
     )
 
     parser.add_argument("--out", type=Path, default=RESULTS_CSV)
@@ -363,13 +358,13 @@ if __name__ == "__main__":
             "mps",
         ),
         default="cpu",
-        help="Device to run default: cpu",
+        help="Training device (default: cpu).",
     )
 
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="List the studies that would run, with their cost, and exit.",
+        help="List planned studies and training run counts, then exit.",
     )
 
     args = parser.parse_args()
@@ -398,7 +393,7 @@ if __name__ == "__main__":
 
     if args.dry_run:
         for name, build in studies:
-            print(f"name: {name}, build: {build}")
+            print(f"Model: {name}, data: {build}")
         exit()
 
     device = torch.device(args.device)
@@ -425,7 +420,7 @@ if __name__ == "__main__":
         picks.append((model_name, build, pick))
 
     print(
-        "\n Paste the following in src/attention_lapse_detection/utils/hyperparameter.py"
+        "\nAdd these settings to src/attention_lapse_detection/utils/hyperparameters.py:"
     )
 
     for model_name, build, pick in picks:

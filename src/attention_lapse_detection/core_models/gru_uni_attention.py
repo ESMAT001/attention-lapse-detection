@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class GRUUniAttention(nn.Module):
-    """GRU with uni-directional attention mechanism.
+    """Unidirectional GRU with attention pooling.
 
     Each timestep is scored as score_t = v^T tanh(W h_t + b).
     """

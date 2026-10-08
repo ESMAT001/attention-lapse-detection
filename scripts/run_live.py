@@ -1,4 +1,4 @@
-"""Preview the feature pipeline on a webcam, with the face mesh overlay."""
+"""Preview webcam features with a face mesh overlay."""
 
 import argparse
 
@@ -9,6 +9,5 @@ if __name__ == "__main__":
     parser.add_argument("--source", type=int, default=1, help="Webcam index.")
     args = parser.parse_args()
 
-    # mirror=False so the printed roll/yaw carry the same sign the model was
-    # trained on, the preview is un-mirrored to match.
+    # Keep frames unmirrored to match the training roll/yaw signs.
     build_pipeline(source=args.source, mirror=False, show=True).run()

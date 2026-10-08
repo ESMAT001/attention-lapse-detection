@@ -1,4 +1,4 @@
-"""Merge each build's window chunks into one file per split"""
+"""Merge window chunks into one file per split."""
 
 import argparse
 from typing import Any
@@ -33,7 +33,7 @@ def merge_split(
     chunk_paths = sorted(chunk_dir.glob(chunk_glob_pattern(split)))
 
     if not chunk_paths:
-        print(f"[{tag}] No chunks at {chunk_dir}, skipping.")
+        print(f"[{tag}] Skipping: no chunks found in {chunk_dir}.")
         return
 
     chunks = [np.load(path) for path in chunk_paths]
@@ -58,7 +58,7 @@ def merge_split(
     np.savez_compressed(out_path, **arrays)
 
     print(
-        f"[{tag}] {len(chunk_paths)} chunks -> X {X.shape}, {len(metadata)} rows -> {out_path}"
+        f"[{tag}] Merged {len(chunk_paths)} chunks: X {X.shape}, {len(metadata)} rows. Saved to {out_path}"
     )
 
 
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help=(
-            f"Window length to merge, in seconds. Omit to merge every variant in {list(WINDOW_SECONDS_OPTIONS)}"
+            f"Window length in seconds. Omit to merge all lengths: {list(WINDOW_SECONDS_OPTIONS)}."
         ),
     )
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     window_variants = resolve_variants(args.window_seconds, WINDOW_SECONDS_OPTIONS)
 
     if any(window < 1 for window in window_variants):
-        parser.error("--window-seconds must be >= 1")
+        parser.error("--window-seconds must be at least 1")
 
     for window_seconds in window_variants:
         for fps in FPS_OPTIONS:
