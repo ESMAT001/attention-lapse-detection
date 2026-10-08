@@ -1,35 +1,31 @@
-"""Map DAiSEE engagement levels from (0-3) to binary labels."""
+"""Convert official DAiSEE split labels: 0–1 disengaged, 2–3 engaged."""
 
 import pandas as pd
 
-from attention_lapse_detection.utils.data_paths import LABELS_SPLITS
 from attention_lapse_detection.utils.data_paths import labels_dir
 from attention_lapse_detection.utils.paths import PATHS
+from attention_lapse_detection.utils.constants import LABELS_SPLITS
 
 
-def binarize_labels_in_split(label_csv: str) -> None:
+def binarize_split(label_csv: str) -> None:
     src_file = PATHS.raw_data / "Labels" / label_csv
 
-    if not src_file.exists():
-        raise FileNotFoundError(f"Raw label file not found: {src_file}")
+    if not src_file.is_file():
+        raise FileNotFoundError(f"Label file not found: {src_file}")
 
     out_dir = labels_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_file = out_dir / label_csv
+    dst = out_dir / label_csv
 
-    # Raw level 0,1 -> disengaged (0) and level 2,3 -> engaged (1)
-    df = pd.read_csv(src_file,usecols=["ClipID", "Engagement"])
-    df["Engagement"] = df["Engagement"].apply(lambda x: 0 if x in [0, 1] else 1)
+    tbl = pd.read_csv(src_file, usecols=["ClipID", "Engagement"])
+    eng = tbl["Engagement"].astype(int)
+    tbl["Engagement"] = (eng >= 2).astype(int)
 
-    df.to_csv(out_file, index=False)
-    print(f"Binarized labels saved to: {out_file}")
+    tbl.to_csv(dst, index=False)
+    print(f"  {label_csv}: {len(tbl)} rows -> {dst}")
 
-def main():
-    print("Script 00: Binarize DAiSEE engagement labels")
-
-    for split_csv in LABELS_SPLITS.values():
-        binarize_labels_in_split(split_csv)
 
 if __name__ == "__main__":
-    main()
-    
+    print("Converting DAiSEE labels.")
+    for csv_name in LABELS_SPLITS.values():
+        binarize_split(csv_name)
