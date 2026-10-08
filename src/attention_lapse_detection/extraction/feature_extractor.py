@@ -19,69 +19,73 @@ from attention_lapse_detection.utils.numeric import round4
 
 
 class FeatureExtractor:
-    """Builds one FeatureRow per frame from the six feature sources."""
-
-    def __init__(self):
+    def __init__(self) -> None:
         self.eye_detector = EyeDetector()
-        self.blink_counter = BlinkCounter(EAR_CLOSED_THRESHOLD)
         self.gaze_detector = GazeDetector()
-        self.head_pose_feature = HeadPoseFeature()
-        self.perclos = PERCLOS(PERCLOS_WINDOW_SECONDS)
-        self.blink_counter = BlinkCounter(EAR_CLOSED_THRESHOLD)
+        self.head_pose_estimator = HeadPoseFeature()
         self.mar_detector = mouth_feature
+        self.perclos = PERCLOS(
+            ear_thresh=EAR_CLOSED_THRESHOLD, time_period_s=PERCLOS_WINDOW_SECONDS
+        )
+        self.blink_counter = BlinkCounter(EAR_CLOSED_THRESHOLD)
 
-    def reset_video_state(self):
-        """Clear PERCLOS and blink states"""
+    def reset_video_state(self) -> None:
         self.perclos.reset()
         self.blink_counter.reset()
 
-    def extract(
-        self, frame_packet: FramePacket, landmarks: np.ndarray | None
-    ) -> FeatureRow:
-        t_now_s = frame_packet.timestamp_ms / 1000.0
+    def extract(self, packet: FramePacket, landmarks: np.ndarray | None) -> FeatureRow:
+        t_now_s = packet.timestamp_ms / 1000.0
 
         if landmarks is None:
+            closed_part = round4(self.perclos.update(t_now_s, None))
+            blink_flag = self.blink_counter.update(None)
             return FeatureRow(
-                frame_index=frame_packet.frame_index,
-                timestamp_ms=frame_packet.timestamp_ms,
+                frame_index=packet.frame_index,
+                timestamp_ms=packet.timestamp_ms,
                 ear=0.0,
                 mar=0.0,
                 roll=0.0,
                 pitch=0.0,
                 yaw=0.0,
-                perclos=round4(self.perclos.update(t_now_s, None)),
-                blinks=self.blink_counter.update(None),
+                perclos=closed_part,
+                blinks=blink_flag,
                 face_present=0,
                 gaze_x=0.0,
                 gaze_y=0.0,
             )
 
-        h, w = frame_packet.frame.shape[:2]
+        frame_h = packet.frame.shape[0]
+        frame_w = packet.frame.shape[1]
 
         ear = float(self.eye_detector.get_EAR(landmarks))
-        perclos_score = self.perclos.update(t_now_s, ear)
-        blink_event = self.blink_counter.update(ear)
+        closed_part = self.perclos.update(t_now_s, ear)
+        blink_flag = self.blink_counter.update(ear)
 
-        head_pose = self.head_pose_feature.angles(
-            frame=frame_packet.frame, landmarks=landmarks, frame_size=(w, h)
+        pose = self.head_pose_estimator.angles(
+            frame=packet.frame, landmarks=landmarks, frame_size=(frame_w, frame_h)
         )
-
-        roll, pitch, yaw = head_pose if head_pose is not None else (0.0, 0.0, 0.0)
-
-        mar = self.mar_detector(landmarks)
+        if pose is None:
+            roll = 0.0
+            pitch = 0.0
+            yaw = 0.0
+        else:
+            roll = pose[0]
+            pitch = pose[1]
+            yaw = pose[2]
 
         gaze_x, gaze_y = self.gaze_detector.extract(landmarks)
-        
+        mar = self.mar_detector(landmarks)
+
         return FeatureRow(
-            frame_index=frame_packet.frame_index,
-            timestamp_ms=frame_packet.timestamp_ms,
+            frame_index=packet.frame_index,
+            timestamp_ms=packet.timestamp_ms,
             ear=round4(ear),
             mar=round4(mar),
             roll=round4(roll),
             pitch=round4(pitch),
             yaw=round4(yaw),
-            perclos=round4(perclos_score),
-            blinks=blink_event,
+            perclos=round4(closed_part),
+            blinks=blink_flag,
             face_present=1,
             gaze_x=gaze_x,
             gaze_y=gaze_y,

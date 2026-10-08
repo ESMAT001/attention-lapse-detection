@@ -1,32 +1,23 @@
-class BlinkCounter:
-    """ Counts blinks from per frame EAR.
-        src: Adapted from alireza787b/Python-Gaze-Face-Tracker.
-    """
+"""Blink counts adapted from alireza787b/Python-Gaze-Face-Tracker."""
 
-    def __init__(self, ear_threshold: float):
-        self.ear_threshold = ear_threshold
+
+class BlinkCounter:
+    def __init__(self, ear_thresh: float) -> None:
+        self.ear_thresh = ear_thresh
         self.reset()
 
-    def reset(self):
-        self.eyes_blink_frame_counter = 0
+    def reset(self) -> None:
+        self.closed_streak = 0
         self.total_blinks = 0
 
-    def update(self, ear: float | None) -> int:
-        """
-        Return 1 on the frame a blink finishes, else 0.
-
-        `total` is the running count.
-        """
-
-        blink_event = 0
-
-        if ear is not None:
-            if ear <= self.ear_threshold:
-                self.eyes_blink_frame_counter += 1
+    def update(self, ear_score: float | None) -> int:
+        blink_now = 0
+        if ear_score is not None:
+            if ear_score <= self.ear_thresh:
+                self.closed_streak += 1
             else:
-                if self.eyes_blink_frame_counter > 0:
-                    blink_event = 1
+                if self.closed_streak >= 1:
                     self.total_blinks += 1
-                self.eyes_blink_frame_counter = 0
-
-        return blink_event
+                    blink_now = 1
+                self.closed_streak = 0
+        return blink_now

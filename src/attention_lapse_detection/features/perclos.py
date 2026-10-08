@@ -3,26 +3,27 @@ from attention_lapse_detection.utils.constants import PERCLOS_WINDOW_SECONDS
 
 
 class PERCLOS:
-    """Rolling PERcentage of eye CLOSure over a fixed time period.
+    """Rolling eye-closure fraction, adapted from e_candeloro_Driver_State_Detection."""
 
-    Adapted from e_candeloro_Driver_State_Detection AttentionScorer.get_rolling_PERCLOS.
-    """
-
-    def __init__(self, ear_threshold: float, time_period: float = PERCLOS_WINDOW_SECONDS):
-        self.ear_threshold = ear_threshold
-        self.time_period = time_period
+    def __init__(
+        self, ear_thresh: float, time_period_s: float = PERCLOS_WINDOW_SECONDS
+    ) -> None:
+        self.ear_thresh = ear_thresh
+        self.time_period_s = time_period_s
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.window = deque()
 
-    def update(self,t_now:float, ear: float | None) -> float:
-        "Returns the rolling PERCLOS value after updating the window."
+    def update(self, t_now: float, ear_score: float | None) -> float:
+        if ear_score is None:
+            eye_closed = False
+        else:
+            eye_closed = ear_score <= self.ear_thresh
+        self.window.append((t_now, eye_closed))
 
-        eye_closed = ear is not None and ear <= self.ear_threshold
-        self.window.append((t_now,eye_closed))
-
-        while self.window and self.window[0][0] < t_now - self.time_period:
+        oldest_ok = t_now - self.time_period_s
+        while self.window[0][0] < oldest_ok:
             self.window.popleft()
 
-        return sum(closed for _, closed in self.window) / len(self.window) if self.window else 0.0
+        return sum(closed for _, closed in self.window) / len(self.window)

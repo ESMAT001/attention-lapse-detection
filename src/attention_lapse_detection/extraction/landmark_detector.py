@@ -27,7 +27,7 @@ class LandmarkDetector:
 
     def detect(self, packet: FramePacket) -> np.ndarray | None:
         """Return one face's landmarks, or None if not found."""
-        # OpenCV gives BGR frames and MediaPipe expects RGB.
+        # Convert OpenCV BGR to MediaPipe RGB.
         rgb = cv2.cvtColor(packet.frame, cv2.COLOR_BGR2RGB)
 
         mp_image = mp.Image(
@@ -35,7 +35,7 @@ class LandmarkDetector:
             data=rgb,
         )
 
-        # detect_for_video requires monotonically increasing timestamps.
+        # Video timestamps must keep increasing.
         result = self.detector.detect_for_video(
             mp_image,
             packet.timestamp_ms,
