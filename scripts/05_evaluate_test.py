@@ -52,7 +52,6 @@ FIELDS = [
 
 
 def predict(model: torch.nn.Module, X: np.ndarray) -> np.ndarray:
-    """Softmax probabilities for every window, batched to bound memory."""
     model.eval()
     probs = []
     with torch.no_grad():
@@ -63,8 +62,6 @@ def predict(model: torch.nn.Module, X: np.ndarray) -> np.ndarray:
 
 
 def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
-    """Score one checkpoint on the Test split of the build it was trained on."""
-
     bundle = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     model = CLASSIFIERS_BY_CLASS_NAME[bundle["model_class"]](**bundle["model_kwargs"])
     model.load_state_dict(bundle["state_dict"])
