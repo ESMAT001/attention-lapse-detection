@@ -1,10 +1,15 @@
+from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from sklearn.metrics import average_precision_score, precision_recall_curve
 
-from attention_lapse_detection.training.trainer import Trainer
 from attention_lapse_detection.types import LabelArray, WindowArray
+
+if TYPE_CHECKING:
+    # trainer.py imports this module, so only import Trainer for type checking.
+    from attention_lapse_detection.training.trainer import Trainer
 
 
 def ap_disengaged(y_true: LabelArray, probs: WindowArray):
@@ -16,7 +21,7 @@ def ap_disengaged(y_true: LabelArray, probs: WindowArray):
     return float(average_precision_score(is_disengaged, probs[:, 0]))
 
 
-def best_f1_threshold(trainer: Trainer) -> tuple[float, float, float]:
+def best_f1_threshold(trainer: "Trainer") -> tuple[float, float, float]:
     """Find the validation F1 cutoff for P(disengaged), with precision and recall."""
     
     y_pos = (trainer.val_y_true == 0).astype(int)
