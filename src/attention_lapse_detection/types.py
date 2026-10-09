@@ -132,3 +132,6 @@ class FeatureScaler:
     std: pd.Series
     quantile_low: pd.Series
     quantile_high: pd.Series
+
+
+RawRows = list[dict[str, float]]
