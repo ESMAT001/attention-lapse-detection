@@ -1,17 +1,13 @@
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from sklearn.metrics import average_precision_score, precision_recall_curve
 
-if TYPE_CHECKING:
-    from attention_lapse_detection.training.trainer import Trainer
+from attention_lapse_detection.training.trainer import Trainer
+from attention_lapse_detection.types import LabelArray, WindowArray
 
 
-def ap_disengaged(y_true: NDArray[np.int64], probs: NDArray[np.float32]):
+def ap_disengaged(y_true: LabelArray, probs: WindowArray):
     """Compute disengagement AP from class-0 probabilities.
 
     y_true has shape (N,); probs has shape (N, C).
@@ -21,8 +17,8 @@ def ap_disengaged(y_true: NDArray[np.int64], probs: NDArray[np.float32]):
 
 
 def best_f1_threshold(trainer: Trainer) -> tuple[float, float, float]:
-    """Find the validation F1 cutoff for P(disengaged), with precision and recall.
-    """
+    """Find the validation F1 cutoff for P(disengaged), with precision and recall."""
+    
     y_pos = (trainer.val_y_true == 0).astype(int)
     probs_disengaged = trainer.val_probs[:, 0]
 
@@ -36,12 +32,11 @@ def best_f1_threshold(trainer: Trainer) -> tuple[float, float, float]:
 
 
 def per_clip(
-    y_true: NDArray[np.int64],
-    probs: NDArray[np.float32],
+    y_true: LabelArray,
+    probs: WindowArray,
     clip_ids: NDArray,
 ) -> pd.DataFrame:
-    """Group windows by clip, keeping its label and mean P(disengaged).
-    """
+    """Group windows by clip, keeping its label and mean P(disengaged)."""
     if len(clip_ids) != len(y_true):
         raise ValueError(
             f"Found {len(clip_ids)} clip IDs for {len(y_true)} windows. "
@@ -69,8 +64,8 @@ def per_clip(
 
 
 def clip_ap(
-    y_true: NDArray[np.int64],
-    probs: NDArray[np.float32],
+    y_true: LabelArray,
+    probs: WindowArray,
     clip_ids: NDArray,
 ) -> float:
     """Compute AP after averaging window predictions per clip."""
@@ -84,8 +79,8 @@ def participant_ids(clip_ids: NDArray):
 
 
 def clip_bootstrap_ci(
-    y_true: NDArray[np.int64],
-    probs: NDArray[np.float32],
+    y_true: LabelArray,
+    probs: WindowArray,
     clip_ids: NDArray,
     resamples: int = 2000,
     seed: int = 0,
@@ -93,9 +88,7 @@ def clip_bootstrap_ci(
     clips = per_clip(y_true, probs, clip_ids)
     y, p = clips.y.to_numpy(), clips.p.to_numpy()
     if y.sum() == 0:
-        raise ValueError(
-            "Cannot bootstrap AP: this split has no disengaged clips."
-        )
+        raise ValueError("Cannot bootstrap AP: this split has no disengaged clips.")
 
     participants = participant_ids(clips.index.to_numpy())
     groups = [np.flatnonzero(participants == pid) for pid in np.unique(participants)]

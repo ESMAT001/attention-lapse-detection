@@ -16,6 +16,7 @@ from attention_lapse_detection.training.data import (
 from attention_lapse_detection.training.metrics import best_f1_threshold
 from attention_lapse_detection.training.report import report_ap
 from attention_lapse_detection.training.trainer import Trainer
+from attention_lapse_detection.types import Checkpoint, SavedScaler
 from attention_lapse_detection.utils.constants import (
     DEFAULT_FPS,
     DEFAULT_WINDOW_SECONDS,
@@ -72,11 +73,11 @@ def save_checkpoint(
         )
 
     with open(scaler_path) as f:
-        scaler = json.load(f)
+        scaler: SavedScaler = json.load(f)
 
     threshold, prec, rec = best_f1_threshold(trainer)
 
-    bundle = {
+    bundle: Checkpoint = {
         "model_class": type(model).__name__,
         "model_kwargs": model_kwargs,
         # Save weights on CPU so the checkpoint can load on any device.
@@ -108,8 +109,7 @@ def train_model(
     seed: int = SEED,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> Trainer:
-    """Train one model on cleaned feature windows.
-    """
+    """Train one model on cleaned feature windows."""
     drop_columns = drop_columns or []
 
     generator = set_seed(seed)

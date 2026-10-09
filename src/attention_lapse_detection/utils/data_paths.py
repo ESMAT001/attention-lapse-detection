@@ -1,5 +1,6 @@
 from pathlib import Path
 import numpy as np
+from attention_lapse_detection.types import WindowArray, LabelArray
 
 from attention_lapse_detection.utils.constants import (
     LABELS_SPLITS,
@@ -96,7 +97,7 @@ def load_clean_split(
     drop_columns: list[str],
     split: str,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
-):
+)->tuple[WindowArray, LabelArray]:
     """Load the cleaned Train, Validation or Test arrays."""
 
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)

@@ -1,7 +1,41 @@
 from dataclasses import dataclass, asdict
+from typing import Any, TypedDict
+from numpy.typing import NDArray
+from torch import Tensor
 import numpy as np
 import pandas as pd
 from attention_lapse_detection.utils.constants import FEATURE_COLUMNS
+
+RawRows = list[dict[str, float]]
+WindowArray = NDArray[np.float32]
+LabelArray = NDArray[np.int64]
+GridCell = tuple[str, int, int]
+
+class SavedScaler(TypedDict):
+    fps: int
+    window_size: int
+    feature_order: list[str]
+    scaled_features: list[str]
+    binary_features: list[str]
+    clip_lower_zero: list[str]
+    impute_on_absent: list[str]
+    std_clip: float
+    mean: dict[str, float]
+    std: dict[str, float]
+    quantile_low: dict[str, float]
+    quantile_high: dict[str, float]
+
+
+class Checkpoint(TypedDict):
+    model_class: str
+    model_kwargs: dict[str, Any]
+    state_dict: dict[str, Tensor]
+    scaler: SavedScaler
+    threshold: float
+    fps: int
+    drop_columns: list[str]
+    window_seconds: int
+    val_ap: float
 
 
 @dataclass
@@ -132,6 +166,3 @@ class FeatureScaler:
     std: pd.Series
     quantile_low: pd.Series
     quantile_high: pd.Series
-
-
-RawRows = list[dict[str, float]]
