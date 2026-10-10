@@ -19,7 +19,7 @@ def main() -> None:
         "--split", choices=["Train", "Test", "Validation"], default="Test"
     )
     parser.add_argument(
-        "--video", default="9877360271", help="Video ID without the extension."
+        "--video", default="5100462003", help="Video ID without the extension."
     )
     parser.add_argument(
         "--model", default=DEFAULT_MODEL, help="Checkpoint name or path."

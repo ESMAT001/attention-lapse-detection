@@ -45,7 +45,7 @@ def merge_results(results: Path | None = None) -> None:
                 "hidden_size": int(row["hidden_size"]),
                 "num_layers": int(row["num_layers"]),
                 "dropout": float(row["dropout"]),
-                "learning_rate": round(float(row["learning_rate"]), 6),
+                "learning_rate": float(f"{float(row['learning_rate']):.6g}"),
                 "batch_size": int(row["batch_size"]),
             }
         )
