@@ -11,4 +11,4 @@ for cell in gru_10fps_10s lstm_10fps_10s gru_uni_attention_10fps_10s lstm_uni_at
   done
 done
 
-uv run python scripts/08_evaluate_test.py "${checkpoints[@]}" 2>&1 | tee logs/test.log
+uv run python scripts/07_evaluate_test.py "${checkpoints[@]}" 2>&1 | tee logs/test.log
