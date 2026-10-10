@@ -47,7 +47,7 @@ from attention_lapse_detection.utils.seed import set_seed
 
 DEFAULT_SEEDS = [42, 43, 44, 52, 53, 54, 55, 56]
 
-RESULTS_CSV = PATHS.experiments / "results" / "runs.csv"
+RESULTS_CSV = PATHS.experiments / "results" / "thesis_runs.csv"
 
 FIELDS = [
     "model",

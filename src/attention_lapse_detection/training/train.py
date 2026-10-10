@@ -1,4 +1,3 @@
-import argparse
 import json
 
 import torch
@@ -21,8 +20,6 @@ from attention_lapse_detection.utils.constants import (
     DEFAULT_FPS,
     DEFAULT_WINDOW_SECONDS,
     EPOCHS,
-    FEATURE_COLUMNS,
-    FPS_OPTIONS,
     NUM_CLASSES,
     PATIENCE,
     SEED,
@@ -42,10 +39,11 @@ def train_and_report(
     optimizer: Optimizer,
     epochs: int = EPOCHS,
     patience: int = PATIENCE,
+    device: str = "cpu",
 ) -> Trainer:
     """Train with early stopping on validation AP and report results."""
 
-    trainer = Trainer(model, train_loader, val_loader, criterion, optimizer)
+    trainer = Trainer(model, train_loader, val_loader, criterion, optimizer, device=device)
     trainer.fit(epochs=epochs, early_stopping=True, patience=patience)
     report_ap(trainer)
 
@@ -108,6 +106,7 @@ def train_model(
     drop_columns: list[str] | None = None,
     seed: int = SEED,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
+    device: str = "cpu",
 ) -> Trainer:
     """Train one model on cleaned feature windows."""
     drop_columns = drop_columns or []
@@ -132,60 +131,5 @@ def train_model(
     criterion = nn.CrossEntropyLoss(weight=balanced_class_weights(y_train))
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=WEIGHT_DECAY)
 
-    trainer = train_and_report(model, train_loader, val_loader, criterion, optimizer)
+    trainer = train_and_report(model, train_loader, val_loader, criterion, optimizer,device=device)
     return trainer
-
-
-def create_arg_parser(description: str | None = None):
-    """Parse training options."""
-
-    parser = argparse.ArgumentParser(
-        description=description, formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-
-    parser.add_argument(
-        "--model",
-        dest="model_name",
-        choices=list(CLASSIFIERS),
-        required=True,
-        help="Architecture to train.",
-    )
-
-    parser.add_argument(
-        "--fps",
-        type=int,
-        choices=list(FPS_OPTIONS),
-        default=DEFAULT_FPS,
-        help=f"Target fps (default: {DEFAULT_FPS}).",
-    )
-
-    parser.add_argument(
-        "--drop-columns",
-        nargs="*",
-        default=[],
-        choices=FEATURE_COLUMNS,
-        metavar="COL",
-        help=(
-            "Features removed during cleaning. Choices: "
-            + ", ".join(FEATURE_COLUMNS)
-            + ". Default: none."
-        ),
-    )
-
-    parser.add_argument(
-        "--window-seconds",
-        type=int,
-        default=DEFAULT_WINDOW_SECONDS,
-        help=(
-            f"Window length in seconds (default: {DEFAULT_WINDOW_SECONDS}). "
-            "Run script 03 for this window length first."
-        ),
-    )
-
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=SEED,
-        help=f"Random seed for Python, NumPy, PyTorch and DataLoader (default: {SEED}).",
-    )
-    return parser
