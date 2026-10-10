@@ -9,6 +9,7 @@ import torch.nn as nn
 from numpy.typing import NDArray
 
 from attention_lapse_detection.core_models.registry import CLASSIFIER_NAMES
+from attention_lapse_detection.types import Checkpoint, SavedScaler, WindowArray
 from attention_lapse_detection.utils.numeric import round4
 
 DISENGAGED, ENGAGED = 0, 1
@@ -43,7 +44,7 @@ class Detector:
     def __init__(
         self,
         model: nn.Module,
-        scaler: dict,
+        scaler: SavedScaler,
         threshold: float,
         meta: dict | None = None,
     ) -> None:
@@ -57,7 +58,9 @@ class Detector:
 
     @classmethod
     def load(cls, path: str | Path) -> "Detector":
-        checkpoint = torch.load(Path(path), map_location="cpu", weights_only=False)
+        checkpoint: Checkpoint = torch.load(
+            Path(path), map_location="cpu", weights_only=False
+        )
 
         model_class = CLASSIFIER_NAMES.get(checkpoint["model_class"])
 
@@ -76,7 +79,7 @@ class Detector:
 
         return cls(model, checkpoint["scaler"], float(checkpoint["threshold"]), meta)
 
-    def standardize(self, raw_window: NDArray[np.floating]) -> NDArray[np.float32]:
+    def standardize(self, raw_window: NDArray[np.floating]) -> WindowArray:
         s = self.scaler
         raw_arr = np.asarray(raw_window, dtype=np.float64)
 
@@ -121,7 +124,7 @@ class Detector:
 
         return Prediction(float(probs[DISENGAGED]), self.threshold)
 
-    def window_from_rows(self, rows: Sequence[dict[str, float]]) -> NDArray[np.float32]:
+    def window_from_rows(self, rows: Sequence[dict[str, float]]) -> WindowArray:
         return np.array(
             [[float(row[f]) for f in self.feature_order] for row in rows],
             dtype=np.float32,

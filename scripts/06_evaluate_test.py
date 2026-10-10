@@ -4,10 +4,12 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+from attention_lapse_detection.types import WindowArray
 import torch
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 
 from attention_lapse_detection.training.data import load_clip_ids
+from attention_lapse_detection.types import Checkpoint
 from attention_lapse_detection.training.metrics import (
     clip_bootstrap_ci,
     clip_ap,
@@ -18,7 +20,10 @@ from attention_lapse_detection.training.metrics import (
 from attention_lapse_detection.core_models.registry import CLASSIFIER_NAMES
 from attention_lapse_detection.utils.checkpoints import resolve_checkpoint
 from attention_lapse_detection.utils.csv_log import append_row, read_rows
-from attention_lapse_detection.utils.data_paths import features_id_from_drops, load_clean_split
+from attention_lapse_detection.utils.data_paths import (
+    features_id_from_drops,
+    load_clean_split,
+)
 from attention_lapse_detection.utils.numeric import round4
 from attention_lapse_detection.utils.paths import PATHS
 
@@ -51,34 +56,44 @@ FIELDS = [
 ]
 
 
-def predict(model: torch.nn.Module, X: np.ndarray) -> np.ndarray:
+def predict(model: torch.nn.Module, X: WindowArray):
     model.eval()
     probs = []
+
     with torch.no_grad():
+
         for start in range(0, len(X), BATCH_SIZE):
+
             batch = torch.tensor(X[start : start + BATCH_SIZE], dtype=torch.float32)
             probs.append(torch.softmax(model(batch), dim=1).numpy())
+
     return np.concatenate(probs)
 
 
 def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
-    bundle = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    model = CLASSIFIER_NAMES[bundle["model_class"]](**bundle["model_kwargs"])
-    model.load_state_dict(bundle["state_dict"])
 
-    fps = bundle["fps"]
-    drop_columns = bundle["drop_columns"]
-    window_seconds = bundle["window_seconds"]
-    threshold = bundle["threshold"]
+    checkpoint: Checkpoint = torch.load(
+        checkpoint_path, map_location="cpu", weights_only=False
+    )
+
+    model = CLASSIFIER_NAMES[checkpoint["model_class"]](**checkpoint["model_kwargs"])
+    model.load_state_dict(checkpoint["state_dict"])
+
+    fps = checkpoint["fps"]
+    drop_columns = checkpoint["drop_columns"]
+    window_seconds = checkpoint["window_seconds"]
+    threshold = checkpoint["threshold"]
 
     X_test, y_test = load_clean_split(fps, drop_columns, "Test", window_seconds)
     clip_ids = load_clip_ids(fps, drop_columns, "Test", window_seconds)
+
     probs = predict(model, X_test)
 
     y_pred = np.where(probs[:, 0] >= threshold, 0, 1)
     cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
 
     tp, fn, fp, tn = cm[0, 0], cm[0, 1], cm[1, 0], cm[1, 1]
+
     ci_lo, ci_hi = clip_bootstrap_ci(y_test, probs, clip_ids, resamples=resamples)
     clips = per_clip(y_test, probs, clip_ids)
 
@@ -91,7 +106,7 @@ def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
 
     return {
         "checkpoint": checkpoint_path.stem,
-        "model_class": bundle["model_class"],
+        "model_class": checkpoint["model_class"],
         "fps": fps,
         "window_seconds": window_seconds,
         "features": features_id_from_drops(drop_columns),
@@ -128,7 +143,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     scored = {row["checkpoint"] for row in read_rows(args.out)}
-    
+
     for name in args.checkpoints:
         path = resolve_checkpoint(name)
         if path.stem in scored:

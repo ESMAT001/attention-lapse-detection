@@ -420,7 +420,7 @@ if __name__ == "__main__":
         picks.append((model_name, build, pick))
 
     print(
-        "\nAdd these settings to src/attention_lapse_detection/utils/hyperparameters.py:"
+        "Final result:"
     )
 
     for model_name, build, pick in picks:

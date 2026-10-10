@@ -19,7 +19,7 @@ dependencies = [
 dev = [
     "ipykernel>=7.3.0",
     "jupyterlab>=4.6.3",
-    "optuna>=5.0.0",
+    "optuna==4.9.0",
     "pytest>=9.1.1",
     "ruff>=0.16.8",
 ]

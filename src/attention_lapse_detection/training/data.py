@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import pandas as pd
 from numpy.typing import NDArray
+from attention_lapse_detection.types import WindowArray, LabelArray
 from sklearn.utils import compute_class_weight
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
@@ -20,7 +21,7 @@ from attention_lapse_detection.utils.data_paths import (
 class AttentionLapseDataset(Dataset):
     """Returns one feature window and its label."""
 
-    def __init__(self, X: NDArray[np.float32], y: NDArray[np.int64]) -> None:
+    def __init__(self, X: WindowArray, y: LabelArray) -> None:
         self.X = torch.tensor(X, dtype=torch.float32)
         self.y = torch.tensor(y, dtype=torch.long)
 
@@ -36,9 +37,7 @@ def load_clean_splits(
     drop_columns: list[str],
     seed: int,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
-) -> tuple[
-    NDArray[np.float32], NDArray[np.int64], NDArray[np.float32], NDArray[np.int64]
-]:
+) -> tuple[WindowArray, LabelArray, WindowArray, LabelArray]:
     """Load the cleaned train/validation windows for a feature set."""
 
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
@@ -58,10 +57,10 @@ def load_clean_splits(
 
 
 def make_loaders(
-    X_train: NDArray[np.float32],
-    y_train: NDArray[np.int64],
-    X_val: NDArray[np.float32],
-    y_val: NDArray[np.int64],
+    X_train: WindowArray,
+    y_train: LabelArray,
+    X_val: WindowArray,
+    y_val: LabelArray,
     generator: torch.Generator,
     batch_size: int,
 ) -> tuple[DataLoader, DataLoader]:
@@ -80,7 +79,7 @@ def make_loaders(
     return train_loader, val_loader
 
 
-def balanced_class_weights(y_train: NDArray[np.int64]) -> torch.Tensor:
+def balanced_class_weights(y_train: LabelArray) -> torch.Tensor:
     """Balance class weights by their training frequencies."""
 
     weights = compute_class_weight(
@@ -100,7 +99,7 @@ def load_clip_ids(
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> NDArray:
     """Load clip IDs in the same order as the window arrays."""
-    
+
     src = clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
     meta = pd.read_csv(src / f"{split}_window_metadata_clean.csv")
     return meta.video_id.to_numpy()

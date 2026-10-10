@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from attention_lapse_detection.types import FeatureScaler
+from attention_lapse_detection.types import FeatureScaler, SavedScaler
 from attention_lapse_detection.utils.cli import resolve_variants
 from attention_lapse_detection.utils.constants import (
     FEATURE_COLUMNS,
@@ -74,9 +74,7 @@ def clean_split(
     return scaler
 
 
-def build_long_dataframe(
-    data, drop_columns: list[str]
-) -> tuple[pd.DataFrame, int]:
+def build_long_dataframe(data, drop_columns: list[str]) -> tuple[pd.DataFrame, int]:
     """Flatten (windows, frames, features) into one row per frame."""
     X = data["X"]
     y = data["y"]
@@ -173,7 +171,9 @@ def to_window_arrays(df: pd.DataFrame, window_size: int, active_features: list[s
 
     counts = df.groupby("sample_id", sort=False).size()
     bad = counts[counts != window_size]
-    assert bad.empty, f"Expected {window_size} frames per window. Mismatched windows: {bad}"
+    assert (
+        bad.empty
+    ), f"Expected {window_size} frames per window. Mismatched windows: {bad}"
 
     X_clean = (
         df[active_features]
@@ -199,7 +199,7 @@ def write_scaler(
     """Save the training scaler for inference."""
 
     scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
-    payload = {
+    payload: SavedScaler = {
         "fps": fps,
         "window_size": window_size,
         "feature_order": active_features,
