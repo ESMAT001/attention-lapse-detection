@@ -22,6 +22,7 @@ dev = [
     "optuna==4.9.0",
     "pytest>=9.1.1",
     "ruff>=0.16.8",
+    "statsmodels>=0.15.0",
 ]
 
 [[tool.uv.index]]

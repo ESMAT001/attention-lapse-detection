@@ -33,3 +33,15 @@ def report_ap(trainer: Trainer) -> None:
         f"(rows: actual, columns: predicted) [disengaged, engaged]:\n{cm}\n"
         f"Disengaged windows detected: {caught}/{total}"
     )
+
+
+def mean_sd(mean: float, sd: float, decimals: int = 4, signed: bool = False) -> str:
+    if signed:
+        sign_part = "+"
+    else:
+        sign_part = ""
+
+    mean_spec = f"{sign_part}.{decimals}f"
+    sd_spec = f".{decimals}f"
+    
+    return f"{format(mean, mean_spec)} ± {format(sd, sd_spec)}"
