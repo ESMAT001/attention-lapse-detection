@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, f1_score
 from attention_lapse_detection.training.data import load_clip_ids
 from attention_lapse_detection.types import Checkpoint
 from attention_lapse_detection.training.metrics import (
+    predict,
     clip_bootstrap_ci,
     clip_ap,
     participant_ids,
@@ -28,8 +29,6 @@ from attention_lapse_detection.utils.numeric import round4
 from attention_lapse_detection.utils.paths import PATHS
 
 RESULTS_CSV = PATHS.experiments / "results" / "test_results.csv"
-
-BATCH_SIZE = 512
 
 FIELDS = [
     "checkpoint",
@@ -54,21 +53,6 @@ FIELDS = [
     "fp",
     "tn",
 ]
-
-
-def predict(model: torch.nn.Module, X: WindowArray):
-    model.eval()
-    probs = []
-
-    with torch.no_grad():
-
-        for start in range(0, len(X), BATCH_SIZE):
-
-            batch = torch.tensor(X[start : start + BATCH_SIZE], dtype=torch.float32)
-            probs.append(torch.softmax(model(batch), dim=1).numpy())
-
-    return np.concatenate(probs)
-
 
 def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
 

@@ -1,0 +1,51 @@
+video_id,daisee_engagement,rule_label,eyes_closed_often,prolonged_eye_closure,yawning,elevated_blinking,human_label
+8264120249.avi,0,unknown,0,0,0,0,unknown
+5100342048.avi,0,unknown,0,0,0,0,unknown
+8264120156.avi,0,likely fatigue,1,1,0,0,likely fatigue
+5000671041.avi,0,likely mind wandering,0,0,0,0,unknown
+8264120263.avi,0,unknown,0,0,0,0,unknown
+9289010276.avi,0,likely fatigue,0,0,1,1,likely fatigue
+8264120243.avi,0,likely fatigue,0,0,0,0,unknown
+928901014.avi,0,likely fatigue,1,1,0,0,likely fatigue
+88265401750.mp4,0,unknown,0,0,0,0,unknown
+9403280271.avi,0,unknown,0,0,0,0,unknown
+9289010145.avi,0,unknown,0,0,0,0,unknown
+8264120231.avi,0,likely fatigue,0,0,1,1,likely fatigue
+5100401065.avi,0,unknown,0,0,0,0,unknown
+5000671048.avi,0,likely mind wandering,0,0,0,0,unknown
+5100402001.avi,0,unknown,0,0,0,0,unknown
+5100342024.avi,0,likely fatigue,1,1,0,0,likely fatigue
+8264120169.avi,0,likely fatigue,0,0,1,0,likely fatigue
+9289010114.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+5000671061.avi,0,unknown,1,1,0,0,likely fatigue
+8264120150.avi,0,unknown,0,0,0,0,unknown
+5100401043.avi,0,unknown,0,0,0,0,unknown
+826412013.avi,0,likely fatigue,0,0,1,0,likely fatigue
+5000951023.avi,0,unknown,1,1,0,0,likely fatigue
+5100351013.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+8264120254.avi,0,unknown,0,0,0,0,unknown
+9877360120.avi,0,likely mind wandering,0,0,0,0,unknown
+5000952062.avi,0,unknown,0,0,0,0,unknown
+8264120265.avi,0,likely fatigue,0,0,0,1,likely mind wandering
+5100352054.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+8264120239.avi,0,unknown,0,0,0,0,unknown
+907001480.mp4,0,likely mind wandering,0,0,0,0,unknown
+5100342028.avi,0,unknown,1,1,0,0,likely fatigue
+5100472058.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+8264120262.avi,0,unknown,0,0,0,0,unknown
+5100462003.avi,0,likely mind wandering,1,0,0,1,likely mind wandering
+5100401023.avi,0,unknown,0,0,0,0,unknown
+8264120279.avi,0,unknown,0,0,0,0,unknown
+5100401034.avi,0,likely fatigue,0,0,0,0,unknown
+5100351002.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+8264120282.avi,0,unknown,0,0,0,0,unknown
+8264120256.avi,0,unknown,0,0,0,0,unknown
+5000951027.avi,0,likely mind wandering,1,1,0,0,likely fatigue
+5100402062.avi,0,unknown,0,0,0,0,unknown
+8264120240.avi,0,unknown,0,0,0,0,unknown
+5100351001.avi,0,unknown,0,0,0,0,unknown
+5000671070.avi,0,likely mind wandering,1,1,0,0,likely fatigue
+5100341074.avi,0,unknown,0,0,0,1,likely mind wandering
+5000671049.avi,0,likely fatigue,1,1,0,0,likely fatigue
+5000671042.avi,0,likely mind wandering,0,0,0,1,likely mind wandering
+8264120284.avi,0,unknown,0,0,0,0,unknown
