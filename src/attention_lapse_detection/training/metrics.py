@@ -2,7 +2,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
+import torch
+from numpy.typing import ArrayLike, NDArray
 from sklearn.metrics import average_precision_score, precision_recall_curve
 
 from attention_lapse_detection.types import LabelArray, WindowArray
@@ -10,6 +11,8 @@ from attention_lapse_detection.types import LabelArray, WindowArray
 if TYPE_CHECKING:
     # trainer.py imports this module, so only import Trainer for type checking.
     from attention_lapse_detection.training.trainer import Trainer
+
+PREDICT_BATCH_SIZE = 512
 
 
 def ap_disengaged(y_true: LabelArray, probs: WindowArray):
@@ -21,18 +24,37 @@ def ap_disengaged(y_true: LabelArray, probs: WindowArray):
     return float(average_precision_score(is_disengaged, probs[:, 0]))
 
 
+def predict(model: torch.nn.Module, X: WindowArray):
+    model.eval()
+    probs = []
+
+    with torch.no_grad():
+
+        for start in range(0, len(X), PREDICT_BATCH_SIZE):
+            batch = torch.tensor(
+                X[start : start + PREDICT_BATCH_SIZE], dtype=torch.float32
+            )
+
+            probs.append(torch.softmax(model(batch), dim=1).numpy())
+
+    return np.concatenate(probs)
+
+
 def best_f1_threshold(trainer: "Trainer") -> tuple[float, float, float]:
-    """Find the validation F1 cutoff for P(disengaged), with precision and recall."""
-    
     y_pos = (trainer.val_y_true == 0).astype(int)
     probs_disengaged = trainer.val_probs[:, 0]
+    return best_f1_threshold_extended(y_pos, probs_disengaged)
 
+
+def best_f1_threshold_extended(
+    y_pos: ArrayLike, probs_disengaged: ArrayLike
+) -> tuple[float, float, float]:
     prec, rec, thr = precision_recall_curve(y_pos, probs_disengaged)
     f1s = 2 * prec * rec / (prec + rec + 1e-9)
 
     best = int(np.nanargmax(f1s))
 
-    best_thr = thr[min(best, len(thr) - 1)]  # thr is shorter than prec/rec by 1
+    best_thr = thr[min(best, len(thr) - 1)]
     return float(best_thr), float(prec[best]), float(rec[best])
 
 
