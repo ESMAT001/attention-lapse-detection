@@ -14,6 +14,8 @@ OVERLAY_FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 class Pipeline:
+    """Takes a video frame by frame and turns it into feature rows."""
+
     def __init__(
         self,
         reader: FrameReader,

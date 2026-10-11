@@ -236,6 +236,7 @@ if __name__ == "__main__":
     variants = [[]] if args.ablate is None else [[col] for col in args.ablate]
 
     done = completed_runs(args.out)
+    # This order lets runs share the same loaded data before moving to the next set.
     runs = [
         (model_name, window_seconds, drop_columns, seed)
         for window_seconds in args.window_seconds
@@ -260,7 +261,7 @@ if __name__ == "__main__":
             print(
                 f"Model: {model_name}, window: {window_seconds}s, dropped features: {drop_columns}, seed: {seed}"
             )
-            sys.exit(0)
+        sys.exit(0)
 
     device = torch.device(args.device)
 

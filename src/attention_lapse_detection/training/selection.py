@@ -40,12 +40,14 @@ def selection_table(runs: pd.DataFrame) -> pd.DataFrame:
         else:
             result: Any = wilcoxon(scores_by_seed(runs, cell), best_scores)
             p_values.append(result.pvalue)
+            # We keep this setting if the test finds no significant difference
             eligible.append(result.pvalue > threshold)
 
     cells["diff_vs_largest"] = cells["val_ap"] - cells["val_ap"].max()
     cells["p_vs_largest"] = p_values
     cells["eligible"] = eligible
 
+    # We choose the setting with the fewest parameters from those still eligible.
     smallest_eligible = cells.loc[cells["eligible"], "params"].idxmin()
     cells["retained"] = cells.index == smallest_eligible
 
@@ -53,6 +55,7 @@ def selection_table(runs: pd.DataFrame) -> pd.DataFrame:
 
 
 def select(runs: pd.DataFrame) -> GridCell:
+    """Select the best grid cell based on validation AP and eligibility."""
     cells = selection_table(runs)
     retained: list[GridCell] = cells.loc[cells["retained"]].index.tolist()
     return retained[0]

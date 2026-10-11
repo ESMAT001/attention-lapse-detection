@@ -9,7 +9,7 @@ from sklearn.metrics import average_precision_score, precision_recall_curve
 from attention_lapse_detection.types import LabelArray, WindowArray
 
 if TYPE_CHECKING:
-    # trainer.py imports this module, so only import Trainer for type checking.
+    # trainer.py imports this module, so we only import Trainer for type checking.
     from attention_lapse_detection.training.trainer import Trainer
 
 PREDICT_BATCH_SIZE = 512
@@ -43,6 +43,7 @@ def predict(model: torch.nn.Module, X: WindowArray):
 def best_f1_threshold(trainer: "Trainer") -> tuple[float, float, float]:
     y_pos = (trainer.val_y_true == 0).astype(int)
     probs_disengaged = trainer.val_probs[:, 0]
+
     return best_f1_threshold_extended(y_pos, probs_disengaged)
 
 
@@ -50,10 +51,11 @@ def best_f1_threshold_extended(
     y_pos: ArrayLike, probs_disengaged: ArrayLike
 ) -> tuple[float, float, float]:
     prec, rec, thr = precision_recall_curve(y_pos, probs_disengaged)
-    f1s = 2 * prec * rec / (prec + rec + 1e-9)
+    f1s = 2 * prec * rec / (prec + rec + 1e-9) # Compute F1 scores for each threshold
 
-    best = int(np.nanargmax(f1s))
+    best = int(np.nanargmax(f1s)) # Index of the best F1 score
 
+    # The last point on the curve has no threshold, so we cap the index here.
     best_thr = thr[min(best, len(thr) - 1)]
     return float(best_thr), float(prec[best]), float(rec[best])
 
@@ -102,6 +104,7 @@ def clip_ap(
 
 
 def participant_ids(clip_ids: NDArray):
+    # The first six characters of a clip ID identify the participant.
     return pd.Index(clip_ids).str[:6].to_numpy()
 
 
@@ -123,9 +126,12 @@ def clip_bootstrap_ci(
     rng = np.random.default_rng(seed)
     scores = []
     for _ in range(resamples):
+        # We sample whole participants so that their clips always stay together.
         pick = rng.integers(0, len(groups), len(groups))
         idx = np.concatenate([groups[k] for k in pick])
+
         if y[idx].sum() == 0:
             continue
         scores.append(average_precision_score(y[idx], p[idx]))
+        
     return float(np.percentile(scores, 2.5)), float(np.percentile(scores, 97.5))

@@ -19,7 +19,7 @@ def features_id_from_drops(drop_columns: list[str]) -> str:
 
 
 def labels_dir() -> Path:
-    return PATHS.processed_data / "labels"
+    return PATHS.processed_data / "Labels"
 
 
 def labels_csv(split: str) -> Path:

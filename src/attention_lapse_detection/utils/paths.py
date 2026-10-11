@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class ProjectPaths:
-    "Shared paths used across this project."
+    """Shared paths used across this project."""
 
     root = ROOT
     data = ROOT / "Data"

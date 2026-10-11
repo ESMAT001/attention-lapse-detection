@@ -66,6 +66,7 @@ def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
     fps = checkpoint["fps"]
     drop_columns = checkpoint["drop_columns"]
     window_seconds = checkpoint["window_seconds"]
+    # Test predictions use the threshold already chosen on validation data.
     threshold = checkpoint["threshold"]
 
     X_test, y_test = load_clean_split(fps, drop_columns, "Test", window_seconds)
@@ -76,6 +77,7 @@ def evaluate(checkpoint_path: Path, resamples: int, out: Path) -> dict:
     y_pred = np.where(probs[:, 0] >= threshold, 0, 1)
     cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
 
+    # Extract true positives, false negatives, false positives, and true negatives from the confusion matrix.
     tp, fn, fp, tn = cm[0, 0], cm[0, 1], cm[1, 0], cm[1, 1]
 
     ci_lo, ci_hi = clip_bootstrap_ci(y_test, probs, clip_ids, resamples=resamples)

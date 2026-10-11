@@ -15,6 +15,8 @@ VALUES_JSON = PATHS.root / "hyperparameters" / "values.json"
 
 @dataclass(frozen=True)
 class Hyperparameters:
+    """The tuned settings for one model, fps and window length."""
+
     hidden_size: int
     num_layers: int
     dropout: float
@@ -39,6 +41,7 @@ def load_hyperparameters(path: Path | None = None) -> dict[GridCell, Hyperparame
 
     for record in json.loads(path.read_text(encoding="utf-8")):
         key = (record.pop("model"), record.pop("fps"), record.pop("window_seconds"))
+        
         settings[key] = Hyperparameters(**record)
 
     return settings

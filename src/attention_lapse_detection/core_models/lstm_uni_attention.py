@@ -34,6 +34,7 @@ class LSTMUniAttention(nn.Module):
     def forward(self, x: torch.Tensor):
         outputs, _ = self.lstm(x)  # (batch, timesteps, hidden)
         scores = self.attention(outputs).squeeze(-1)  # (batch, timesteps)
+        # We combine the timesteps in the same way as in gru_uni_attention.py.
         weights = torch.softmax(scores, dim=1).unsqueeze(-1)
         context = (outputs * weights).sum(dim=1)  # (batch, hidden)
         return self.final_layer(self.dropout(context))

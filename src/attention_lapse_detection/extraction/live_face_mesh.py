@@ -31,8 +31,11 @@ GAZE_BOX_SIZE = 150
 
 
 class LiveFaceMesh:
+    """Draws the face mesh and live feature values on top of the preview window."""
+
     def __init__(self, model_path) -> None:
         self.latest_result = None
+
         base_opts = python.BaseOptions(model_asset_path=str(model_path))
         mesh_opts = vision.FaceLandmarkerOptions(
             base_options=base_opts,
@@ -40,6 +43,7 @@ class LiveFaceMesh:
             num_faces=1,
             result_callback=self.stash_latest_result,
         )
+
         self.landmarker = vision.FaceLandmarker.create_from_options(mesh_opts)
 
     def stash_latest_result(self, result, output_image, timestamp_ms) -> None:
@@ -48,12 +52,14 @@ class LiveFaceMesh:
     def detect(self, frame, timestamp_ms: int) -> None:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_frame = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
         self.landmarker.detect_async(mp_frame, timestamp_ms)
 
     def draw(
         self, frame, gaze_x: float, gaze_y: float, perclos: float, blinks: int
     ) -> None:
         result = self.latest_result
+
         if result is None or not result.face_landmarks:
             return
 
@@ -73,7 +79,9 @@ class LiveFaceMesh:
             perclos_color = (0, 0, 255)
         else:
             perclos_color = (0, 255, 0)
+
         perclos_pct = round4(perclos * 100)
+
         self.write_label(frame, f"PERCLOS: {perclos_pct}%", 130, perclos_color)
         self.write_label(frame, f"Blinks: {blinks}", 160, (0, 255, 255))
 
@@ -81,6 +89,7 @@ class LiveFaceMesh:
         frame_w = frame.shape[1]
         size = GAZE_BOX_SIZE
         margin = 10
+
         x1 = frame_w - size - margin
         y1 = margin
         x2 = frame_w - margin
@@ -93,11 +102,13 @@ class LiveFaceMesh:
         cv2.rectangle(frame, (x1, y1), (x2, y2), (200, 200, 200), 1)
         mid_x = x1 + size // 2
         mid_y = y1 + size // 2
+
         cv2.line(frame, (x1, mid_y), (x2, mid_y), (80, 80, 80), 1)
         cv2.line(frame, (mid_x, y1), (mid_x, y2), (80, 80, 80), 1)
 
         half = size / 2
 
+        # The gaze movement is enlarged here so small changes are easier to see.
         push_x = min(gaze_x * GAZE_INDICATOR_GAIN, 1.0)
         push_x = max(push_x, -1.0)
         push_y = min(gaze_y * GAZE_INDICATOR_GAIN, 1.0)
@@ -105,6 +116,7 @@ class LiveFaceMesh:
 
         dot_x = int(mid_x + push_x * half)
         dot_y = int(mid_y + push_y * half)
+        
         cv2.circle(frame, (dot_x, dot_y), 6, (0, 255, 0), -1)
         cv2.circle(frame, (dot_x, dot_y), 6, (0, 0, 0), 1)
 

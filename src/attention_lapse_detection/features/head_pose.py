@@ -4,6 +4,8 @@ import numpy as np
 
 
 class HeadPoseFeature:
+    """Gets head roll, pitch and yaw for a frame from the face landmarks."""
+
     def __init__(
         self, camera_matrix=None, dist_coeffs=None, show_axis: bool = False
     ) -> None:

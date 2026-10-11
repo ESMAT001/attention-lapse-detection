@@ -50,11 +50,13 @@ def merge_split(
 
     merged_dir(fps, window_seconds).mkdir(parents=True, exist_ok=True)
     out_path = merged_npz(fps, split, window_seconds)
+
     arrays = {
         "X": X,
         "y": y,
-        **{key: metadata[key].to_numpy() for key in WINDOW_METADATA_COLUMNS},
+        **{key: metadata[key].to_numpy() for key in WINDOW_METADATA_COLUMNS}, # Include all window metadata columns as separate arrays
     }
+    
     np.savez_compressed(out_path, **arrays)
 
     print(

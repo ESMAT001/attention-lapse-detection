@@ -13,10 +13,12 @@ PERCLOS_MAX = 0.24  # Savas and Becerikli
 PROLONGED_CLOSURE_S = 5.0  # Savas and Becerikli
 MAR_YAWN = 0.60  # Rohitha et al.
 YAWN_MIN_S = 0.50  # Rohitha et al.
-BLINK_RATE_MAX = 25.0  # Exploratory cutoff; see STAGE2_CAUSE_CLASSIFICATION.md.
+BLINK_RATE_MAX = 25.0 
 
 
 def run_lengths(flags: Iterable[bool]) -> list[int]:
+    """Compute the lengths of consecutive runs of True"""
+
     runs: list[int] = []
     current = 0
 
@@ -34,6 +36,7 @@ def run_lengths(flags: Iterable[bool]) -> list[int]:
 
 
 def cause_evidence(rows: RawRows, fps: float) -> dict[str, float]:
+    # The rules below use the original feature values before scaling.
     valid = [row["face_present"] == 1 for row in rows]
 
     valid_frames = sum(valid)
@@ -46,12 +49,14 @@ def cause_evidence(rows: RawRows, fps: float) -> dict[str, float]:
             "blink_rate": 0.0,
         }
 
+    # If the face disappears, it ends the current eye closure or yawn.
     closed = [ok and row["ear"] <= EAR_CLOSED for row, ok in zip(rows, valid)]
     yawning = [ok and row["mar"] > MAR_YAWN for row, ok in zip(rows, valid)]
 
     closure_runs = run_lengths(closed)
     blinks = sum(row["blinks"] for row, ok in zip(rows, valid) if ok)
 
+    # These rates use only the frames where the face was visible.
     return {
         "face_valid_ratio": valid_frames / len(rows),
         "perclos": sum(closed) / valid_frames,

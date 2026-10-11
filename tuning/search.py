@@ -106,6 +106,8 @@ def all_builds() -> list[Build]:
 # Data
 
 
+# Every trial and seed needs the same arrays, so we load them from disk once.
+# Studies run build by build, so keeping one build in memory is enough.
 @lru_cache(maxsize=1)
 def load_data(build: Build) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Cache one build's fixed train/validation arrays for reuse across seeds."""
@@ -130,6 +132,7 @@ def validation_clip_ids(build: Build) -> np.ndarray:
 
 def entry(model_name: str, build: Build, pick: Result) -> str:
     """Format the selected settings for hyperparameters.py."""
+
     config = pick.config
 
     return (
@@ -149,6 +152,7 @@ def report(model_name: str, build: Build, results: list[Result], pick: Result):
             f"  {round4(result.mean)} +/- {round4(result.sem)}  "
             f"{result.params,} params  {result.config}"
         )
+
     print(
         f"  Selected: {pick.config}  (AP {round4(pick.mean)}, {pick.params:,} parameters)"
     )
@@ -245,7 +249,7 @@ def search(
     device: torch.device,
     log_row: Callable[..., None],
 ) -> list[Hyperparameters]:
-    """Rank configurations with sequential TPE trials; confirm the top ones later."""
+    """Rank configurations with sequential TPE trials."""
 
     def objective(trial: optuna.Trial) -> float:
         config = suggest(trial)
@@ -259,6 +263,7 @@ def search(
         direction="maximize",
         sampler=optuna.samplers.TPESampler(seed=SEED),
     )
+    
     study.optimize(objective, n_trials=trials)
 
     scored = [
@@ -268,6 +273,7 @@ def search(
     ]
 
     ranked = sorted(scored, key=lambda scored_trial: scored_trial[0], reverse=True)
+    # Several trials can use the same settings, so we only confirm each set once.
     return list(dict.fromkeys(config for _, config in ranked))
 
 
@@ -419,9 +425,7 @@ if __name__ == "__main__":
         report(model_name, build, results, pick)
         picks.append((model_name, build, pick))
 
-    print(
-        "Final result:"
-    )
+    print("Final result:")
 
     for model_name, build, pick in picks:
         print(entry(model_name, build, pick))

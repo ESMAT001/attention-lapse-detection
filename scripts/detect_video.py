@@ -12,7 +12,7 @@ from attention_lapse_detection.utils.paths import PATHS
 DEFAULT_MODEL = "gru_uni_attention_10fps_10s_all_features_s42"
 
 
-def main() -> None:
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
 
     parser.add_argument(
@@ -57,7 +57,7 @@ def main() -> None:
 
     if len(rows) < window_size:
         print(f"Clip too short: {len(rows)} frames; need {window_size}.")
-        return
+        exit()
 
     print(
         f"\n{'window':<15}{'start_ms':<15}{'end_ms':<15}{'label':<15}{'p(disengaged)':<15}cause"
@@ -85,5 +85,3 @@ def main() -> None:
     )
 
 
-if __name__ == "__main__":
-    main()

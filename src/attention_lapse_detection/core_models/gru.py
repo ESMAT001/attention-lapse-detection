@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class GRU(nn.Module):
-    "GRU with pooled by the final hidden state"
+    """Gated Recurrent Unit"""
 
     def __init__(
             self,
@@ -20,9 +20,11 @@ class GRU(nn.Module):
             dropout=dropout if num_layers > 1 else 0.0,
             batch_first=True
         )
+        # GRU applies the dropout between layers, so we also add dropout after the GRU to cover the single-layer case.
         self.dropout = nn.Dropout(dropout)
         self.final_layer = nn.Linear(hidden_size, num_classes)
 
     def forward(self, x: torch.Tensor):
         _, hidden = self.gru(x) # (num_layers, batch, hidden)
+        # The loss function handles softmax, so the model returns raw scores.
         return self.final_layer(self.dropout(hidden[-1]))

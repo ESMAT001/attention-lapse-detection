@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class LSTM(nn.Module):
-    "LSTM with pooled by the final hidden state"
+    """Long Short-Term Memory"""
 
     def __init__(
             self,
@@ -25,5 +25,6 @@ class LSTM(nn.Module):
         self.final_layer = nn.Linear(hidden_size, num_classes)
 
     def forward(self, x: torch.Tensor):
+        # LSTM returns both the hidden and cell states, but onlyt the hidden state is used
         _, (hidden, _) = self.lstm(x) # (num_layers, batch, hidden)
         return self.final_layer(self.dropout(hidden[-1]))
