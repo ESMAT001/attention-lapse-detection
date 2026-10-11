@@ -144,8 +144,6 @@ These commands require the original DAiSEE videos.
 
 ## Dataset
 
-The models are trained and evaluated using the [DAiSEE (Dataset for Affective States in E-Environments)](https://people.iith.ac.in/vineethnb/resources/daisee/index.html) dataset.
-
 The original videos are not included in the repository. Download the dataset separately and place it under `data/raw/`:
 
 ```text
