@@ -1,5 +1,14 @@
 # Attention Lapse Detection
 
+<p align="center">
+  <img src="images/01.png" width="48%" align="middle" alt="Live facial feature visualization with the MediaPipe face mesh, head pose axes, and EAR, MAR, PERCLOS, blink and gaze values">
+  <img src="images/3.png" width="48%" align="middle" alt="Live facial feature visualization with the face mesh, eye and eyebrow contours, head pose axes, a gaze position map, and EAR, MAR, PERCLOS, blink and gaze values">
+</p>
+
+<p align="center">
+  <img src="images/02.png" width="60%" alt="Live detection overlay showing a disengaged prediction with the likely cause, the disengagement probability and the decision cutoff">
+</p>
+
 A machine learning system for detecting attention lapses through facial behavioral features using RNNs (GRU and LSTM).
 
 The system processes video frames to extract facial features and identify patterns associated with engagement and disengagement. When disengagement is detected, a rule-based component estimates possible causes.
