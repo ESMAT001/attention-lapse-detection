@@ -55,13 +55,12 @@ class LiveFaceMesh:
 
         self.landmarker.detect_async(mp_frame, timestamp_ms)
 
-    def draw(
-        self, frame, gaze_x: float, gaze_y: float, perclos: float, blinks: int
-    ) -> None:
+    def draw_mesh(self, frame) -> bool:
+        """Draw the mesh on the unflipped frame. Return whether a face was found."""
         result = self.latest_result
 
         if result is None or not result.face_landmarks:
-            return
+            return False
 
         for connections, style in MESH_LAYERS:
             drawing_utils.draw_landmarks(
@@ -71,9 +70,19 @@ class LiveFaceMesh:
                 landmark_drawing_spec=None,
                 connection_drawing_spec=style(),
             )
+        return True
 
-        self.write_label(frame, f"Gaze x:{gaze_x} y:{gaze_y}", 100, (0, 255, 0))
-        self.paint_gaze_box(frame, gaze_x, gaze_y)
+    def draw_labels(
+        self,
+        frame,
+        gaze_x: float,
+        gaze_y: float,
+        perclos: float,
+        blinks: int,
+        mirrored: bool = False,
+    ) -> None:
+        self.write_label(frame, f"Gaze x:{gaze_x} y:{gaze_y}", 115, (0, 255, 0))
+        self.paint_gaze_box(frame, gaze_x, gaze_y, mirrored)
 
         if perclos >= 0.2:
             perclos_color = (0, 0, 255)
@@ -82,10 +91,16 @@ class LiveFaceMesh:
 
         perclos_pct = round4(perclos * 100)
 
-        self.write_label(frame, f"PERCLOS: {perclos_pct}%", 130, perclos_color)
-        self.write_label(frame, f"Blinks: {blinks}", 160, (0, 255, 255))
+        self.write_label(frame, f"PERCLOS: {perclos_pct}%", 150, perclos_color)
+        self.write_label(frame, f"Blinks: {blinks}", 185, (0, 255, 255))
 
-    def paint_gaze_box(self, frame, gaze_x: float, gaze_y: float) -> None:
+    def paint_gaze_box(
+        self, frame, gaze_x: float, gaze_y: float, mirrored: bool = False
+    ) -> None:
+        # In a mirrored preview, flip the dot so it follows the eyes on screen.
+        if mirrored:
+            gaze_x = -gaze_x
+
         frame_w = frame.shape[1]
         size = GAZE_BOX_SIZE
         margin = 10
@@ -123,7 +138,7 @@ class LiveFaceMesh:
     def write_label(
         self, frame, text: str, y: int, color: tuple[int, int, int]
     ) -> None:
-        cv2.putText(frame, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        cv2.putText(frame, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
     def close(self) -> None:
         self.landmarker.close()

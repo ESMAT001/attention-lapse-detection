@@ -9,7 +9,7 @@ from attention_lapse_detection.utils.checkpoints import resolve_checkpoint
 from attention_lapse_detection.utils.numeric import round4
 from attention_lapse_detection.utils.paths import PATHS
 
-DEFAULT_MODEL = "gru_uni_attention_10fps_10s_all_features_s42"
+DEFAULT_MODEL = "gru_uni_attention_10fps_5s_all_features_s42"
 
 
 if __name__ == "__main__":

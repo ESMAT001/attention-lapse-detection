@@ -11,6 +11,7 @@ from attention_lapse_detection.utils.paths import PATHS
 from attention_lapse_detection.utils.numeric import round4
 
 OVERLAY_FONT = cv2.FONT_HERSHEY_SIMPLEX
+OVERLAY_SCALE = 0.9
 
 
 class Pipeline:
@@ -23,12 +24,14 @@ class Pipeline:
         extractor: FeatureExtractor,
         face_mesh: LiveFaceMesh | None = None,
         show: bool = False,
+        mirror_preview: bool = False,
     ) -> None:
         self.reader = reader
         self.detector = detector
         self.extractor = extractor
         self.face_mesh = face_mesh
         self.show = show
+        self.mirror_preview = mirror_preview
 
     def run(self) -> list[FeatureRow]:
         rows: list[FeatureRow] = []
@@ -60,19 +63,46 @@ class Pipeline:
         # Show the total blink count, not the frame event.
         blinks_so_far = self.extractor.blink_counter.total_blinks
 
+        face_found = False
         if self.face_mesh is not None:
             self.face_mesh.detect(frame=frame, timestamp_ms=timestamp_ms)
-            self.face_mesh.draw(
-                frame, row.gaze_x, row.gaze_y, row.perclos, blinks_so_far
+            face_found = self.face_mesh.draw_mesh(frame)
+
+        if self.mirror_preview:
+            frame = cv2.flip(frame, 1)
+
+        if self.face_mesh is not None and face_found:
+            self.face_mesh.draw_labels(
+                frame,
+                row.gaze_x,
+                row.gaze_y,
+                row.perclos,
+                blinks_so_far,
+                mirrored=self.mirror_preview,
             )
 
         perclos_pct = round4(row.perclos * 100)
-        info_line = (
-            f"EAR {row.ear}, Pitch {row.pitch}, Roll {row.roll}, Yaw {row.yaw}, "
-            f"MAR {row.mar}, PERCLOS {perclos_pct}%, Blinks {blinks_so_far}, "
-            f"Gaze: x:{row.gaze_x}, y:{row.gaze_y}"
-        )
-        cv2.putText(frame, info_line, (10, 30), OVERLAY_FONT, 0.7, (255, 0, 0), 2)
+        # Two lines, so the larger text still fits the frame width.
+        info_lines = [
+            (
+                f"EAR {row.ear}, Pitch {row.pitch}, Roll {row.roll}, Yaw {row.yaw}, "
+                f"MAR {row.mar}"
+            ),
+            (
+                f"PERCLOS {perclos_pct}%, Blinks {blinks_so_far}, "
+                f"Gaze: x:{row.gaze_x}, y:{row.gaze_y}"
+            ),
+        ]
+        for line_y, info_line in zip((35, 70), info_lines):
+            cv2.putText(
+                frame,
+                info_line,
+                (10, line_y),
+                OVERLAY_FONT,
+                OVERLAY_SCALE,
+                (255, 0, 0),
+                2,
+            )
         cv2.imshow("Video features", frame)
 
         pressed = cv2.waitKey(1)
@@ -85,6 +115,7 @@ def build_pipeline(
     mirror: bool = False,
     show: bool = False,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
+    mirror_preview: bool = False,
 ) -> Pipeline:
     reader = FrameReader(
         source=source,
@@ -109,4 +140,5 @@ def build_pipeline(
         extractor=extractor,
         face_mesh=face_mesh,
         show=show,
+        mirror_preview=mirror_preview,
     )

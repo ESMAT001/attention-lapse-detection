@@ -16,13 +16,16 @@ from attention_lapse_detection.utils.numeric import round4
 from attention_lapse_detection.utils.paths import PATHS
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
-DEFAULT_MODEL = "gru_uni_attention_10fps_10s_all_features_s42"
+FONT_SCALE = 1.2
+DEFAULT_MODEL = "gru_uni_attention_10fps_5s_all_features_s42"
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
 
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Checkpoint name or path")
+    parser.add_argument(
+        "--model", default=DEFAULT_MODEL, help="Checkpoint name or path"
+    )
     parser.add_argument("--source", type=int, default=1, help="Webcam index")
     args = parser.parse_args()
 
@@ -72,27 +75,24 @@ if __name__ == "__main__":
 
                 label = "Engaged"
                 if prediction.is_lapse:
-                    label = (
-                        "Disengaged - "
-                        f"{classify_cause(buffer, target_fps)}"
-                    )
-                
+                    label = "Disengaged - " f"{classify_cause(buffer, target_fps)}"
+
                 overlay = (
                     f"{label}  P(disengaged): {round4(prediction.prob_disengaged)} "
                     f"cutoff: {round4(prediction.threshold)}",
                     (0, 0, 255) if prediction.is_lapse else (0, 180, 0),
                 )
-                
+
                 buffer.clear()
 
         # Mirror only the preview.
         frame = cv2.flip(packet.frame, 1)
 
-        y = 40
+        y = 45
         if overlay is not None:
             text, color = overlay
-            cv2.putText(frame, text, (10, y), FONT, 0.8, color, 2)
-            y = 75
+            cv2.putText(frame, text, (10, y), FONT, FONT_SCALE, color, 2)
+            y = 90
 
         seconds = len(buffer) / target_fps
         cv2.putText(
@@ -101,7 +101,7 @@ if __name__ == "__main__":
             f"({round4(seconds)}/{window_seconds}s)",
             (10, y),
             FONT,
-            0.7,
+            FONT_SCALE,
             (200, 200, 200),
             2,
         )
@@ -113,5 +113,3 @@ if __name__ == "__main__":
     reader.release()
     landmark_detector.close()
     cv2.destroyAllWindows()
-
-
