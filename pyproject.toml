@@ -1,7 +1,7 @@
 [project]
 name = "attention-lapse-detection"
 version = "0.1.0"
-description = "Add your description here"
+description = "Attention lapse detection from facial behavioral features using GRU and LSTM models"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
