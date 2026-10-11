@@ -19,6 +19,8 @@ from attention_lapse_detection.utils.numeric import round4
 
 
 class FeatureExtractor:
+    """Builds one FeatureRow per frame and remembers blink and PERCLOS state."""
+
     def __init__(self) -> None:
         self.eye_detector = EyeDetector()
         self.gaze_detector = GazeDetector()
@@ -34,11 +36,13 @@ class FeatureExtractor:
         self.blink_counter.reset()
 
     def extract(self, packet: FramePacket, landmarks: np.ndarray | None) -> FeatureRow:
-        t_now_s = packet.timestamp_ms / 1000.0
+        t_now_s = packet.timestamp_ms / 1000.0 # Convert timestamp from milliseconds to seconds
 
         if landmarks is None:
             closed_part = round4(self.perclos.update(t_now_s, None))
             blink_flag = self.blink_counter.update(None)
+
+            # The zeros are placeholders, and face_present tells us the face was missing.
             return FeatureRow(
                 frame_index=packet.frame_index,
                 timestamp_ms=packet.timestamp_ms,
@@ -64,10 +68,12 @@ class FeatureExtractor:
         pose = self.head_pose_estimator.angles(
             frame=packet.frame, landmarks=landmarks, frame_size=(frame_w, frame_h)
         )
+
         if pose is None:
             roll = 0.0
             pitch = 0.0
             yaw = 0.0
+            
         else:
             roll = pose[0]
             pitch = pose[1]

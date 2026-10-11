@@ -34,7 +34,10 @@ class GRUUniAttention(nn.Module):
 
     def forward(self, x: torch.Tensor):
         outputs, _ = self.gru(x)  # (batch, timesteps, hidden)
+        # Apply attention pooling over the GRU outputs.
         scores = self.attention(outputs).squeeze(-1)  # (batch, timesteps)
+        # These weights add up to one across time, so we can combine the steps
+        # into a single summary of the window.
         weights = torch.softmax(scores, dim=1).unsqueeze(-1)
         context = (outputs * weights).sum(dim=1)  # (batch, hidden)
         return self.final_layer(self.dropout(context))

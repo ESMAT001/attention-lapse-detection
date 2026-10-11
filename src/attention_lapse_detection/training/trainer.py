@@ -13,8 +13,7 @@ from attention_lapse_detection.utils.numeric import round4
 
 
 class Trainer:
-    """Train and validate a model, optionally keeping the epoch with the best AP.
-    """
+    """Train and validate a model, keeping the epoch with the best AP."""
 
     def __init__(
         self,
@@ -54,8 +53,10 @@ class Trainer:
             y_batch = y_batch.to(self.device)
 
             self.optimizer.zero_grad()
+
             loss = self.criterion(self.model(X_batch), y_batch)
             loss.backward()
+
             self.optimizer.step()
 
             total_loss += loss.item()
@@ -89,6 +90,7 @@ class Trainer:
         y_pred = torch.cat(all_preds).numpy()
         y_true = torch.cat(all_labels).numpy()
         probs = torch.cat(all_probs).numpy()
+        
         accuracy = float((y_pred == y_true).mean())
 
         return total_loss / len(self.val_loader), accuracy, y_true, y_pred, probs
@@ -109,6 +111,7 @@ class Trainer:
 
         for epoch in range(1, epochs + 1):
             last_epoch = epoch
+            
             train_loss = self.train_one_epoch()
             val_loss, val_accuracy, y_true, y_pred, probs = self.evaluate()
 
@@ -132,6 +135,8 @@ class Trainer:
             }
 
             if early_stopping:
+                # Early stopping uses AP for individual windows. We compare
+                # configurations later using AP for whole clips.
                 val_ap = ap_disengaged(y_true, probs)
                 log += f" | validation AP: {round4(val_ap)}"
                 epoch_record["val_ap"] = val_ap
@@ -140,6 +145,7 @@ class Trainer:
                     best_ap = val_ap
                     best_epoch = epoch
                     epochs_since_improvement = 0
+                    # This copy preserves the best weights while training continues.
                     best_state = copy.deepcopy(self.model.state_dict())
                 else:
                     epochs_since_improvement += 1

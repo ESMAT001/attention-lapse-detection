@@ -60,6 +60,7 @@ def save_checkpoint(
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> None:
     """Save one .pt bundle: weights, config, scaler and decision threshold."""
+    
     scaler_path = (
         clean_dir(fps, features_id_from_drops(drop_columns), window_seconds)
         / "scaler.json"
@@ -73,6 +74,7 @@ def save_checkpoint(
     with open(scaler_path) as f:
         scaler: SavedScaler = json.load(f)
 
+    # The saved threshold comes from predictions on the validation set.
     threshold, prec, rec = best_f1_threshold(trainer)
 
     bundle: Checkpoint = {
@@ -109,12 +111,14 @@ def train_model(
     device: str = "cpu",
 ) -> Trainer:
     """Train one model on cleaned feature windows."""
+
     drop_columns = drop_columns or []
 
     generator = set_seed(seed)
     X_train, y_train, X_val, y_val = load_clean_splits(
         fps, drop_columns, seed, window_seconds
     )
+
     train_loader, val_loader = make_loaders(
         X_train, y_train, X_val, y_val, generator, batch_size=64
     )
@@ -126,7 +130,7 @@ def train_model(
         num_classes=NUM_CLASSES,
         dropout=0.25,
     )
-    model = CLASSIFIERS[model_name](**model_kwargs)
+    model = CLASSIFIERS[model_name](**model_kwargs) # Initialize the model with the specified architecture and hyperparameters
 
     criterion = nn.CrossEntropyLoss(weight=balanced_class_weights(y_train))
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=WEIGHT_DECAY)

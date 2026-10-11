@@ -45,59 +45,29 @@ INT_METADATA = [
 ]
 
 
-def checked_engagement(value: int) -> int:
-    if value == 0 or value == 1:
-        return value
-    raise ValueError(f"Bad engagement label: {value}")
-
-
-def find_avi_location(video_id: str, split: str) -> Path:
-    person_folder = video_id[:6]
-    clip_folder = video_id[:-4]
-    return PATHS.raw_data / "DataSet" / split / person_folder / clip_folder / video_id
-
-
-def slice_clip_into_windows(
-    video_id: str,
-    engagement: int,
-    split: str,
+def note_broken_clips(
+    failed: list[dict[str, str]],
     fps: int,
+    split: str,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
-    stride_seconds: int = STRIDE_SECONDS,
-) -> list[FeatureWindow]:
+):
+    csv_path = failed_extraction_csv(fps, split, window_seconds)
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    runner = build_pipeline(
-        source=find_avi_location(video_id, split),
-        target_fps=fps,
-        window_seconds=window_seconds,
-    )
+    fail_table = pd.DataFrame(failed)
 
-    frame_rows = runner.run()
+    if csv_path.is_file():
+        older = pd.read_csv(csv_path)
 
-    clip_result = VideoResult(
-        video_id=video_id, engagement=engagement, features=frame_rows
-    )
+        older_ids = older["video_id"].astype(str)
 
-    frames_per_window = runner.reader.window_size
-    step_frames = fps * stride_seconds
+        replaced = older_ids.isin(fail_table["video_id"])
 
-    return clip_result.to_windows(window_size=frames_per_window, stride=step_frames)
+        kept = older[~replaced]
+        fail_table = pd.concat([kept, fail_table], ignore_index=True)
 
-
-def handle_single_clip(job: VideoJob) -> VideoJobResult:
-    # OpenCV has a separate thread pool.
-    cv2.setNumThreads(1)
-
-    video_id, engagement, split, fps, window_seconds, stride_seconds = job
-
-    try:
-        clip_windows = slice_clip_into_windows(
-            video_id, engagement, split, fps, window_seconds, stride_seconds
-        )
-        return video_id, clip_windows, None
-
-    except Exception:
-        return video_id, None, traceback.format_exc()
+    fail_table.to_csv(csv_path, index=False)
+    print(f"Saved {len(fail_table)} failed clips to {csv_path}")
 
 
 def write_chunk_to_disk(
@@ -107,6 +77,8 @@ def write_chunk_to_disk(
     fps: int,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ):
+    """Write a chunk of feature windows to disk as a compressed .npz file."""
+    
     if not windows:
         return
 
@@ -152,6 +124,7 @@ def write_chunk_to_disk(
     npz_path = chunk_folder / file_name
     half_done_path = npz_path.with_name(npz_path.name + PARTIAL_SUFFIX)
 
+    # Writing to a temporary file lets us retry safely if saving is interrupted.
     with open(half_done_path, "wb") as handle:
         np.savez_compressed(handle, **arrays)
 
@@ -163,22 +136,20 @@ def write_chunk_to_disk(
     )
 
 
-def collect_split_labels(split: str) -> dict[str, int]:
-    label_path = labels_csv(split)
+def handle_single_clip(job: VideoJob) -> VideoJobResult:
+    # OpenCV has a separate thread pool.
+    cv2.setNumThreads(1)
 
-    if not label_path.is_file():
-        raise FileNotFoundError(
-            f"Labels not found for {split}: {label_path}. "
-            f"Run 00_binarize_labels.py first."
+    video_id, engagement, split, fps, window_seconds, stride_seconds = job
+
+    try:
+        clip_windows = slice_clip_into_windows(
+            video_id, engagement, split, fps, window_seconds, stride_seconds
         )
+        return video_id, clip_windows, None
 
-    label_table = pd.read_csv(label_path)
-    labels_by_clip: dict[str, int] = {}
-
-    for clip_id, engagement in zip(label_table["ClipID"], label_table["Engagement"]):
-        labels_by_clip[str(clip_id)] = checked_engagement(int(engagement))
-
-    return labels_by_clip
+    except Exception:
+        return video_id, None, traceback.format_exc()
 
 
 def look_over_saved_chunks(
@@ -186,6 +157,7 @@ def look_over_saved_chunks(
     split: str,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> tuple[set[str], int]:
+    """Return the set of seen clips and the last chunk number for a given split."""
 
     chunk_folder = chunks_split_dir(fps, split, window_seconds)
     seen_clips: set[str] = set()
@@ -218,6 +190,24 @@ def look_over_saved_chunks(
     return seen_clips, last_number
 
 
+def collect_split_labels(split: str) -> dict[str, int]:
+    label_path = labels_csv(split)
+
+    if not label_path.is_file():
+        raise FileNotFoundError(
+            f"Labels not found for {split}: {label_path}. "
+            f"Run 00_binarize_labels.py first."
+        )
+
+    label_table = pd.read_csv(label_path)
+    labels_by_clip: dict[str, int] = {}
+
+    for clip_id, engagement in zip(label_table["ClipID"], label_table["Engagement"]):
+        labels_by_clip[str(clip_id)] = checked_engagement(int(engagement))
+
+    return labels_by_clip
+
+
 def work_on_split(
     fps: int,
     split: str,
@@ -225,6 +215,8 @@ def work_on_split(
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
     stride_seconds: int = STRIDE_SECONDS,
 ) -> bool:
+    """Process clips in a split, extracting in parallel."""
+
     labels_by_clip = collect_split_labels(split)
 
     chunks_split_dir(fps, split, window_seconds).mkdir(parents=True, exist_ok=True)
@@ -262,6 +254,7 @@ def work_on_split(
     print(f"  Using {max_workers} workers")
 
     was_stopped = False
+    # Start processing jobs in parallel using a pool of worker processes.
     with ProcessPoolExecutor(max_workers=max_workers) as pool:
         futures = []
         for job in jobs:
@@ -287,6 +280,7 @@ def work_on_split(
                 n_windows = len(clip_windows)
                 print(f"  [{done_so_far}/{jobs_left}] {video_id}: {n_windows} windows")
 
+                # Keeping each clip in one chunk avoids skipping unsaved windows when we resume.
                 pending_windows.extend(clip_windows)
                 clips_in_buffer += 1
 
@@ -326,29 +320,43 @@ def work_on_split(
     return was_stopped
 
 
-def note_broken_clips(
-    failed: list[dict[str, str]],
-    fps: int,
+def find_avi_location(video_id: str, split: str) -> Path:
+    person_folder = video_id[:6]
+    clip_folder = video_id[:-4]
+    return PATHS.raw_data / "DataSet" / split / person_folder / clip_folder / video_id
+
+
+def slice_clip_into_windows(
+    video_id: str,
+    engagement: int,
     split: str,
+    fps: int,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
-):
-    csv_path = failed_extraction_csv(fps, split, window_seconds)
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    stride_seconds: int = STRIDE_SECONDS,
+) -> list[FeatureWindow]:
 
-    fail_table = pd.DataFrame(failed)
+    runner = build_pipeline(
+        source=find_avi_location(video_id, split),
+        target_fps=fps,
+        window_seconds=window_seconds,
+    )
 
-    if csv_path.is_file():
-        older = pd.read_csv(csv_path)
+    frame_rows = runner.run()
 
-        older_ids = older["video_id"].astype(str)
+    clip_result = VideoResult(
+        video_id=video_id, engagement=engagement, features=frame_rows
+    )
 
-        replaced = older_ids.isin(fail_table["video_id"])
+    frames_per_window = runner.reader.window_size
+    step_frames = fps * stride_seconds
 
-        kept = older[~replaced]
-        fail_table = pd.concat([kept, fail_table], ignore_index=True)
+    return clip_result.to_windows(window_size=frames_per_window, stride=step_frames)
 
-    fail_table.to_csv(csv_path, index=False)
-    print(f"Saved {len(fail_table)} failed clips to {csv_path}")
+
+def checked_engagement(value: int) -> int:
+    if value == 0 or value == 1:
+        return value
+    raise ValueError(f"Bad engagement label: {value}")
 
 
 def fetch_one_label(video_id: str, split: str) -> int:
@@ -409,6 +417,7 @@ if __name__ == "__main__":
         choices=list(FPS_OPTIONS),
         help=f"Frame rate (default: {FPS_OPTIONS[0]}).",
     )
+    # SUPPRESS is used to prevent the subcommand defaults from replacing options given earlier
     test_cmd.add_argument(
         "--window-seconds",
         type=int,
@@ -423,6 +432,7 @@ if __name__ == "__main__":
     )
 
     all_windows = list(WINDOW_SECONDS_OPTIONS)
+
     parser.add_argument(
         "--window-seconds",
         type=int,
@@ -480,4 +490,4 @@ if __name__ == "__main__":
                 )
                 
                 if was_stopped:
-                    sys.exit(130)
+                    sys.exit(130) # 130 indicates that the process was terminated by the user (Ctrl+C).

@@ -1,11 +1,7 @@
-"""Default numeric backends to one thread per worker to avoid CPU oversubscription.
-
-Import before NumPy and MediaPipe. Existing thread settings are kept.
-"""
-
 import os
 import sys
 
+# Set environment variables to limit the number of threads used by numeric backends.
 THREAD_ENV_VARS = (
     "OMP_NUM_THREADS",
     "OPENBLAS_NUM_THREADS",
@@ -20,6 +16,7 @@ for var in THREAD_ENV_VARS:
 
 def available_cpus():
 
+    # On Linux, we count only the CPUs available to this process.
     if sys.platform == "linux":
         return len(os.sched_getaffinity(0))
 

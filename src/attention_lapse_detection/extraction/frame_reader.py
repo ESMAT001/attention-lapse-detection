@@ -6,9 +6,11 @@ from attention_lapse_detection.utils.constants import DEFAULT_WINDOW_SECONDS
 
 
 class FrameReader:
+    """Reads webcam or video frames, downsampling video files to the target fps."""
+
     def __init__(
         self,
-        source=0,
+        source=0, # Webcam by default
         mirror: bool = True,
         target_fps: int | None = 10,
         window_seconds: int = DEFAULT_WINDOW_SECONDS,
@@ -24,6 +26,7 @@ class FrameReader:
             open_target = source
         else:
             open_target = str(source)
+
         self.cap = cv2.VideoCapture(open_target)
         if not self.cap.isOpened():
             raise RuntimeError(f"Could not open source: {source}")
@@ -43,6 +46,7 @@ class FrameReader:
                 self.effective_fps = target_fps
             else:
                 self.effective_fps = self.source_fps
+
             fps_ratio = self.source_fps / self.effective_fps
             self.frame_skip = max(1, round(fps_ratio))
 

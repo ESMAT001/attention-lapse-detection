@@ -18,15 +18,20 @@ DISENGAGED, ENGAGED = 0, 1
 def fill_absent(
     column: NDArray[np.float64], absent: NDArray[np.bool_]
 ) -> NDArray[np.float64]:
-    valid = np.flatnonzero(~absent)
+    valid = np.flatnonzero(~absent) # Indices of frames where the feature is present
+
     if valid.size == 0:
         return np.full_like(column, np.nan)
+    # We fill gaps from the last visible frame, using the first one for gaps
+    # at the start, just as in scripts/03_clean_extracted_data.py.
     source = np.maximum.accumulate(np.where(absent, -1, np.arange(column.size)))
     source[source < 0] = valid[0]
     return column[source]
 
 
 class Prediction:
+    """The disengaged probability for one window and the label it gives."""
+
     def __init__(self, prob_disengaged: float, threshold: float) -> None:
         self.prob_disengaged = prob_disengaged
         self.threshold = threshold
@@ -41,6 +46,8 @@ class Prediction:
 
 
 class Detector:
+    """Loads a saved model and labels raw feature windows as engaged or disengaged."""
+
     def __init__(
         self,
         model: nn.Module,
@@ -80,6 +87,7 @@ class Detector:
         return cls(model, checkpoint["scaler"], float(checkpoint["threshold"]), meta)
 
     def standardize(self, raw_window: NDArray[np.floating]) -> WindowArray:
+        # New windows need the same scaling that the model saw during training.
         s = self.scaler
         raw_arr = np.asarray(raw_window, dtype=np.float64)
 
@@ -119,8 +127,8 @@ class Detector:
 
     @torch.no_grad()
     def predict(self, raw_window: NDArray[np.floating]) -> Prediction:
-        tensor = torch.from_numpy(self.standardize(raw_window)).unsqueeze(0)
-        probs = torch.softmax(self.model(tensor), dim=1).squeeze(0)
+        tensor = torch.from_numpy(self.standardize(raw_window)).unsqueeze(0) # Add batch dimension for the model
+        probs = torch.softmax(self.model(tensor), dim=1).squeeze(0) # Remove batch dimension after softmax
 
         return Prediction(float(probs[DISENGAGED]), self.threshold)
 

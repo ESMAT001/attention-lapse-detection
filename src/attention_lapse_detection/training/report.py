@@ -10,7 +10,7 @@ def report_ap(trainer: Trainer) -> None:
     """AP and best-F1 threshold for the disengaged class."""
 
     y_val = trainer.val_y_true
-    probs_disengaged = trainer.val_probs[:, 0]
+    probs_disengaged = trainer.val_probs[:, 0] # Probability of the disengaged class
     y_pos = (y_val == 0).astype(int)
 
     ap = average_precision_score(y_pos, probs_disengaged)

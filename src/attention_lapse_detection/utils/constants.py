@@ -1,6 +1,7 @@
 SEED = 42
 
 # Features
+# The model expects features in this order.
 FEATURE_COLUMNS = [
     "ear",
     "mar",
@@ -31,7 +32,7 @@ STRIDE_SECONDS = 5
 DEFAULT_FPS = 10
 
 
-# EAR at or below this threshold counts as closed; see the thesis for rationale.
+# EAR at or below this threshold counts as closed; see the thesis.
 # PERCLOS is the closed-eye fraction over the rolling window.
 EAR_CLOSED_THRESHOLD = 0.20
 PERCLOS_WINDOW_SECONDS = 10.0

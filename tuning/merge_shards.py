@@ -13,6 +13,7 @@ TARGET = VALUES_JSON
 
 
 def merge_results(results: Path | None = None) -> None:
+    # Unless a file was specified, we use the merged CSV if it already exists.
     merge_shards = results is None and not MERGED_CSV.is_file()
 
     if merge_shards:
@@ -28,6 +29,7 @@ def merge_results(results: Path | None = None) -> None:
     if not rows:
         raise ValueError("No search results found.")
 
+    # The search has already picked the winners, so we just export those rows.
     picked = {}
     for row in rows:
         if row["selected"] == "True":

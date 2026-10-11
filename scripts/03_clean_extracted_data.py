@@ -31,6 +31,160 @@ QUANTILE_HIGH = 0.999
 STD_CLIP = 5
 
 
+def write_scaler(
+    out_dir: Path,
+    scaler: FeatureScaler,
+    active_features: list[str],
+    window_size: int,
+    fps: int,
+):
+    """Save the training scaler for inference."""
+
+    scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
+
+    payload: SavedScaler = {
+        "fps": fps,
+        "window_size": window_size,
+        "feature_order": active_features,
+        "scaled_features": scaled_features,
+        "binary_features": [c for c in active_features if c in BINARY_COLUMNS],
+        "clip_lower_zero": [c for c in ("ear", "mar") if c in active_features],
+        "impute_on_absent": [c for c in IMPUTE_ON_ABSENT if c in active_features],
+        "std_clip": STD_CLIP,
+        "mean": {c: float(scaler.mean[c]) for c in scaled_features},
+        "std": {c: float(scaler.std[c]) for c in scaled_features},
+        "quantile_low": {c: float(scaler.quantile_low[c]) for c in scaled_features},
+        "quantile_high": {c: float(scaler.quantile_high[c]) for c in scaled_features},
+    }
+
+    (out_dir / "scaler.json").write_text(json.dumps(payload, indent=2))
+    
+    print(f"[Train] Saved scaler.json ({len(scaled_features)} scaled features)")
+
+
+def to_window_arrays(df: pd.DataFrame, window_size: int, active_features: list[str]):
+    # Sorting first keeps each window's features, label and metadata together.
+    df = df.sort_values(["sample_id", "frame_in_window"], kind="stable")
+
+    counts = df.groupby("sample_id", sort=False).size()
+    bad = counts[counts != window_size]
+
+    if not bad.empty:
+        raise ValueError(
+            f"Expected {window_size} frames per window. Mismatched windows: {bad}"
+        )
+
+    X_clean = (
+        df[active_features]
+        .to_numpy(dtype=np.float32)
+        .reshape(counts.shape[0], window_size, len(active_features))
+    )
+
+    grouped = df.groupby("sample_id", sort=False)
+    y_clean = grouped["engagement"].first().to_numpy(dtype=np.int64)
+    metadata = grouped[WINDOW_METADATA_COLUMNS].first().reset_index(drop=True)
+
+    assert X_clean.shape[0] == y_clean.shape[0] == len(metadata)
+    return X_clean, y_clean, metadata
+
+
+def transform_features(
+    df: pd.DataFrame, scaled_features: list[str], scaler: FeatureScaler
+):
+    """Apply fitted clipping bounds, standardize, then clip extreme scaled values."""
+    df[scaled_features] = df[scaled_features].clip(
+        scaler.quantile_low, scaler.quantile_high, axis=1
+    )
+
+    df[scaled_features] = (df[scaled_features] - scaler.mean) / scaler.std # Standardize features
+    df[scaled_features] = df[scaled_features].clip(-STD_CLIP, STD_CLIP) # Clip extreme standardized values to avoid outliers
+
+    # After scaling, zero is the training mean, so it fills any remaining gaps.
+    df[scaled_features] = df[scaled_features].fillna(0.0)
+
+
+def fit_scaler(df: pd.DataFrame, scaled_features: list[str]) -> FeatureScaler:
+    """Fit clip bounds and standardization stats on Train only."""
+
+    quantile_low = df[scaled_features].quantile(QUANTILE_LOW)
+    quantile_high = df[scaled_features].quantile(QUANTILE_HIGH)
+    clipped = df[scaled_features].clip(quantile_low, quantile_high, axis=1)
+
+    return FeatureScaler(
+        mean=clipped.mean(),
+        std=clipped.std(ddof=0).replace(0, 1), # Replace any zero std with 1 to avoid division by zero
+        quantile_low=quantile_low,
+        quantile_high=quantile_high,
+    )
+
+
+def impute_absent_frames(df: pd.DataFrame, active_features: list[str]) -> pd.DataFrame:
+    """Fill missing-face features forward, then backward within each window."""
+
+    if "face_present" not in df.columns:
+        return df
+
+    impute_columns = [c for c in IMPUTE_ON_ABSENT if c in active_features]
+    if not impute_columns:
+        return df
+
+    df = df.sort_values(["sample_id", "frame_in_window"], kind="stable")
+    df.loc[df["face_present"] == 0, impute_columns] = np.nan
+
+    # Forward-fill then backward-fill missing values within each window.
+    df[impute_columns] = df.groupby("sample_id", sort=False)[impute_columns].ffill()
+    df[impute_columns] = df.groupby("sample_id", sort=False)[impute_columns].bfill()
+    return df
+
+
+def clean_dataframe(
+    df: pd.DataFrame, active_features: list[str], scaler: FeatureScaler | None
+) -> tuple[pd.DataFrame, FeatureScaler]:
+    """Fill, clip and scale features. Fit a scaler if none is supplied (Train only)."""
+
+    df = df.copy()
+
+    df = impute_absent_frames(df, active_features)
+
+    scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
+
+    # EAR and MAR cannot be negative so apply the fixed floor before fitting.
+    for column in ("ear", "mar"):
+        if column in scaled_features:
+            df[column] = df[column].clip(lower=0)
+
+    if scaler is None:
+        scaler = fit_scaler(df, scaled_features)
+
+    transform_features(df, scaled_features, scaler)
+
+    return df, scaler
+
+
+def build_long_dataframe(data, drop_columns: list[str]) -> tuple[pd.DataFrame, int]:
+    """Flatten (windows, frames, features) into one row per frame."""
+
+    X = data["X"]
+    y = data["y"]
+    num_windows, window_size, _ = X.shape
+
+    df = pd.DataFrame(
+        X.reshape(num_windows * window_size, len(FEATURE_COLUMNS)),
+        columns=FEATURE_COLUMNS,
+    )
+
+    if drop_columns:
+        df = df.drop(columns=drop_columns)
+
+    for column in WINDOW_METADATA_COLUMNS:
+        df[column] = np.repeat(data[column], window_size)
+
+    df["frame_in_window"] = np.tile(np.arange(window_size), num_windows)
+    df["engagement"] = np.repeat(y, window_size)
+
+    return df, window_size
+
+
 def clean_split(
     split: str,
     fps: int,
@@ -72,150 +226,6 @@ def clean_split(
 
     print(f"[{split}] {windows_in} windows kept. X {X_clean.shape}, y {y_clean.shape}")
     return scaler
-
-
-def build_long_dataframe(data, drop_columns: list[str]) -> tuple[pd.DataFrame, int]:
-    """Flatten (windows, frames, features) into one row per frame."""
-    X = data["X"]
-    y = data["y"]
-    num_windows, window_size, _ = X.shape
-
-    df = pd.DataFrame(
-        X.reshape(num_windows * window_size, len(FEATURE_COLUMNS)),
-        columns=FEATURE_COLUMNS,
-    )
-
-    if drop_columns:
-        df = df.drop(columns=drop_columns)
-
-    for column in WINDOW_METADATA_COLUMNS:
-        df[column] = np.repeat(data[column], window_size)
-
-    df["frame_in_window"] = np.tile(np.arange(window_size), num_windows)
-    df["engagement"] = np.repeat(y, window_size)
-
-    return df, window_size
-
-
-def clean_dataframe(
-    df: pd.DataFrame, active_features: list[str], scaler: FeatureScaler | None
-) -> tuple[pd.DataFrame, FeatureScaler]:
-    """Fill, clip and scale features. Fit a scaler if none is supplied (Train only)."""
-    df = df.copy()
-
-    df = impute_absent_frames(df, active_features)
-
-    scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
-
-    # EAR and MAR cannot be negative; apply the fixed floor before fitting.
-    for column in ("ear", "mar"):
-        if column in scaled_features:
-            df[column] = df[column].clip(lower=0)
-
-    if scaler is None:
-        scaler = fit_scaler(df, scaled_features)
-
-    transform_features(df, scaled_features, scaler)
-
-    return df, scaler
-
-
-def impute_absent_frames(df: pd.DataFrame, active_features: list[str]) -> pd.DataFrame:
-    """Fill missing-face features forward, then backward within each window."""
-
-    if "face_present" not in df.columns:
-        return df
-
-    impute_columns = [c for c in IMPUTE_ON_ABSENT if c in active_features]
-    if not impute_columns:
-        return df
-
-    df = df.sort_values(["sample_id", "frame_in_window"], kind="stable")
-    df.loc[df["face_present"] == 0, impute_columns] = np.nan
-
-    df[impute_columns] = df.groupby("sample_id", sort=False)[impute_columns].ffill()
-    df[impute_columns] = df.groupby("sample_id", sort=False)[impute_columns].bfill()
-    return df
-
-
-def fit_scaler(df: pd.DataFrame, scaled_features: list[str]) -> FeatureScaler:
-    """Fit clip bounds and standardization stats on Train only."""
-
-    quantile_low = df[scaled_features].quantile(QUANTILE_LOW)
-    quantile_high = df[scaled_features].quantile(QUANTILE_HIGH)
-    clipped = df[scaled_features].clip(quantile_low, quantile_high, axis=1)
-
-    return FeatureScaler(
-        mean=clipped.mean(),
-        std=clipped.std(ddof=0).replace(0, 1),
-        quantile_low=quantile_low,
-        quantile_high=quantile_high,
-    )
-
-
-def transform_features(
-    df: pd.DataFrame, scaled_features: list[str], scaler: FeatureScaler
-):
-    """Apply fitted clipping bounds, standardize, then clip extreme scaled values."""
-    df[scaled_features] = df[scaled_features].clip(
-        scaler.quantile_low, scaler.quantile_high, axis=1
-    )
-    df[scaled_features] = (df[scaled_features] - scaler.mean) / scaler.std
-    df[scaled_features] = df[scaled_features].clip(-STD_CLIP, STD_CLIP)
-
-    df[scaled_features] = df[scaled_features].fillna(0.0)
-
-
-def to_window_arrays(df: pd.DataFrame, window_size: int, active_features: list[str]):
-    df = df.sort_values(["sample_id", "frame_in_window"], kind="stable")
-
-    counts = df.groupby("sample_id", sort=False).size()
-    bad = counts[counts != window_size]
-    assert (
-        bad.empty
-    ), f"Expected {window_size} frames per window. Mismatched windows: {bad}"
-
-    X_clean = (
-        df[active_features]
-        .to_numpy(dtype=np.float32)
-        .reshape(counts.shape[0], window_size, len(active_features))
-    )
-
-    grouped = df.groupby("sample_id", sort=False)
-    y_clean = grouped["engagement"].first().to_numpy(dtype=np.int64)
-    metadata = grouped[WINDOW_METADATA_COLUMNS].first().reset_index(drop=True)
-
-    assert X_clean.shape[0] == y_clean.shape[0] == len(metadata)
-    return X_clean, y_clean, metadata
-
-
-def write_scaler(
-    out_dir: Path,
-    scaler: FeatureScaler,
-    active_features: list[str],
-    window_size: int,
-    fps: int,
-):
-    """Save the training scaler for inference."""
-
-    scaled_features = [c for c in active_features if c not in BINARY_COLUMNS]
-    payload: SavedScaler = {
-        "fps": fps,
-        "window_size": window_size,
-        "feature_order": active_features,
-        "scaled_features": scaled_features,
-        "binary_features": [c for c in active_features if c in BINARY_COLUMNS],
-        "clip_lower_zero": [c for c in ("ear", "mar") if c in active_features],
-        "impute_on_absent": [c for c in IMPUTE_ON_ABSENT if c in active_features],
-        "std_clip": STD_CLIP,
-        "mean": {c: float(scaler.mean[c]) for c in scaled_features},
-        "std": {c: float(scaler.std[c]) for c in scaled_features},
-        "quantile_low": {c: float(scaler.quantile_low[c]) for c in scaled_features},
-        "quantile_high": {c: float(scaler.quantile_high[c]) for c in scaled_features},
-    }
-
-    (out_dir / "scaler.json").write_text(json.dumps(payload, indent=2))
-    print(f"[Train] Saved scaler.json ({len(scaled_features)} scaled features)")
 
 
 if __name__ == "__main__":

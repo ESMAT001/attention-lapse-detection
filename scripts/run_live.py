@@ -10,4 +10,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Keep frames unmirrored to match the training roll/yaw signs.
-    build_pipeline(source=args.source, mirror=False, show=True).run()
+    # Only the preview on screen is mirrored.
+    build_pipeline(
+        source=args.source, mirror=False, show=True, mirror_preview=True
+    ).run()

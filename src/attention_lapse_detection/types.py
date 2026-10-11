@@ -12,6 +12,8 @@ LabelArray = NDArray[np.int64]
 GridCell = tuple[str, int, int]
 
 class SavedScaler(TypedDict):
+    """Train scaling stats saved to JSON, so new windows get the same scaling."""
+
     fps: int
     window_size: int
     feature_order: list[str]
@@ -27,6 +29,8 @@ class SavedScaler(TypedDict):
 
 
 class Checkpoint(TypedDict):
+    """Everything saved after training to rebuild the model and run it later."""
+
     model_class: str
     model_kwargs: dict[str, Any]
     state_dict: dict[str, Tensor]
