@@ -167,7 +167,7 @@ The repository provides scripts for reproducing the full pipeline, including fea
 
 Run the commands from the repository root.
 
-The repository already contains the outputs of every step, and the scripts skip work that is already saved. To rerun a step from scratch, first move its existing outputs out of `data/processed/`, `tuning/results/` or `experiments/results/`.
+The repository already contains the outputs of every step. Scripts 00, 02 and 03 overwrite their outputs. Feature extraction, tuning, training and test evaluation skip work that is already saved. To rerun one of them from scratch, first move its existing outputs out of `data/processed/window_chunks/`, `tuning/results/` or `experiments/results/`.
 
 ### 1. Data Preparation
 
